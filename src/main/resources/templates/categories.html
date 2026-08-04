@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Categories</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='categories')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='Categories', subtitle='Organize your expenses', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <form action="/categories-page" method="get" class="d-flex" style="max-width:350px">
+                    <input type="text" name="keyword" class="form-control me-2" placeholder="Search categories..." th:value="${keyword}">
+                    <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+                </form>
+                <a href="/add-category" class="btn btn-success"><i class="bi bi-plus-circle me-1"></i>Add Category</a>
+            </div>
+
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body">
+
+                    <div th:if="${#lists.isEmpty(categories)}" class="text-center text-muted py-5">
+                        <i class="bi bi-folder-x fs-1"></i>
+                        <p class="mt-2 mb-0">No categories found.</p>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(categories)}" class="table table-hover align-middle">
+
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Category Name</th>
+                                <th>Expenses</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr th:each="category : ${categories}">
+                                <td th:text="${category.name}"></td>
+                                <td><span class="badge bg-secondary" th:text="${expenseCounts.get(category.id)}">0</span></td>
+                                <td th:text="${category.createdAt != null ? #temporals.format(category.createdAt, 'dd MMM yyyy') : '-'}"></td>
+                                <td>
+                                    <a th:href="@{'/edit-category/' + ${category.id}}" class="btn btn-warning btn-sm">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                            th:attr="data-delete-url=@{'/delete-category/' + ${category.id}},data-category-name=${category.name},data-expense-count=${expenseCounts.get(category.id)}"
+                                            onclick="setDeleteForm(this)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">
+                Are you sure you want to delete this category?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+    function setDeleteForm(button) {
+        const url = button.getAttribute('data-delete-url');
+        const categoryName = button.getAttribute('data-category-name');
+        const expenseCount = parseInt(button.getAttribute('data-expense-count'), 10) || 0;
+
+        document.getElementById('deleteForm').setAttribute('action', url);
+        const body = document.getElementById('deleteModalBody');
+
+        if (expenseCount > 0) {
+            body.textContent = 'Deleting "' + categoryName + '" will also permanently delete '
+                + expenseCount + ' linked expense(s). This cannot be undone.';
+        } else {
+            body.textContent = 'Are you sure you want to delete "' + categoryName + '"?';
+        }
+    }
+</script>
+
+</body>
+</html>

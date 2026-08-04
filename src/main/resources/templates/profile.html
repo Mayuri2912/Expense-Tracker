@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Profile</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='profile')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='My Profile', subtitle='Your account details', user=${user})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div class="row g-4">
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Account Overview</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless mb-0">
+                                <tr>
+                                    <th style="width:40%">Full Name</th>
+                                    <td th:text="${user.fullName}">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Email</th>
+                                    <td th:text="${user.email}">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Joined</th>
+                                    <td th:text="${user.createdAt != null ? #temporals.format(user.createdAt, 'dd MMM yyyy') : '-'}">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Total Expenses</th>
+                                    <td><span class="badge bg-primary" th:text="${totalExpenses}">0</span></td>
+                                </tr>
+                                <tr>
+                                    <th>Total Categories</th>
+                                    <td><span class="badge bg-success" th:text="${totalCategories}">0</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Profile</h5>
+                        </div>
+                        <div class="card-body">
+
+                            <form th:action="@{/profile/update}" method="post">
+
+                                <div class="mb-3">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" name="fullName" class="form-control" th:value="${user.fullName}" required>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle me-1"></i>Save Profile
+                                </button>
+
+                            </form>
+
+                            <hr>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-shield-lock me-1"></i>
+                                Want to change your password? Visit the <a href="/security">Security</a> page.
+                            </p>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

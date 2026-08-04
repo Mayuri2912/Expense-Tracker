@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<!-- ============ HEAD ASSETS FRAGMENT ============ -->
+<!-- Bootstrap 5.3 (supports data-bs-theme dark mode natively), icons, Chart.js -->
+<th:block th:fragment="headAssets">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+        body { background:#f4f6f9; }
+        [data-bs-theme="dark"] body { background:#12151a; }
+        .sidebar { min-height:100vh; }
+        .sidebar .nav-link { color:#adb5bd; border-radius:8px; margin-bottom:4px; }
+        .sidebar .nav-link.active, .sidebar .nav-link:hover { color:#fff; background:#343a40; }
+        .stat-card { transition: transform .15s ease, box-shadow .15s ease; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.1) !important; }
+        .avatar-circle {
+            width:40px; height:40px; border-radius:50%; background:#0d6efd; color:#fff;
+            display:flex; align-items:center; justify-content:center; font-weight:600;
+        }
+    </style>
+    <script>
+        // Apply saved theme immediately to avoid a flash of the wrong theme.
+        (function () {
+            var theme = localStorage.getItem('expenseTrackerTheme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
+</th:block>
+</head>
+<body>
+
+<!-- ============ SIDEBAR FRAGMENT ============ -->
+<div th:fragment="sidebar (active)" class="col-md-2 bg-dark text-white sidebar p-4">
+
+    <h3 class="mb-5">
+        <i class="bi bi-wallet2"></i>
+        ExpenseTrack
+    </h3>
+
+    <h6 class="text-secondary">MAIN MENU</h6>
+
+    <a href="/dashboard" class="nav-link d-block p-2" th:classappend="${active == 'dashboard'} ? 'active'">
+        <i class="bi bi-grid"></i> Dashboard
+    </a>
+    <a href="/add-expense" class="nav-link d-block p-2" th:classappend="${active == 'add-expense'} ? 'active'">
+        <i class="bi bi-plus-circle"></i> Add Expense
+    </a>
+    <a href="/expenses-page" class="nav-link d-block p-2" th:classappend="${active == 'expenses'} ? 'active'">
+        <i class="bi bi-list"></i> View Expenses
+    </a>
+    <a href="/add-category" class="nav-link d-block p-2" th:classappend="${active == 'add-category'} ? 'active'">
+        <i class="bi bi-tag"></i> Add Category
+    </a>
+    <a href="/categories-page" class="nav-link d-block p-2" th:classappend="${active == 'categories'} ? 'active'">
+        <i class="bi bi-folder"></i> View Categories
+    </a>
+    <a href="/set-budget" class="nav-link d-block p-2" th:classappend="${active == 'budget'} ? 'active'">
+        <i class="bi bi-piggy-bank"></i> Set Budget
+    </a>
+
+    <hr>
+
+    <h6 class="text-secondary">ACCOUNT</h6>
+
+    <a href="/profile" class="nav-link d-block p-2" th:classappend="${active == 'profile'} ? 'active'">
+        <i class="bi bi-person"></i> Profile
+    </a>
+    <a href="/security" class="nav-link d-block p-2" th:classappend="${active == 'security'} ? 'active'">
+        <i class="bi bi-shield-lock"></i> Security
+    </a>
+    <a href="/settings" class="nav-link d-block p-2" th:classappend="${active == 'settings'} ? 'active'">
+        <i class="bi bi-gear"></i> Settings
+    </a>
+    <a href="/logout" class="nav-link d-block p-2 text-danger mt-4">
+        <i class="bi bi-box-arrow-right"></i> Logout
+    </a>
+
+</div>
+
+<!-- ============ TOPBAR FRAGMENT ============ -->
+<div th:fragment="topbar (title, subtitle, user)" class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 th:text="${title}">Page</h2>
+        <small class="text-muted" th:text="${subtitle}">Welcome</small>
+    </div>
+    <div class="d-flex align-items-center">
+        <div class="dropdown">
+            <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                <span class="avatar-circle me-2" th:text="${#strings.substring(user.fullName,0,1)}">U</span>
+                <strong th:text="${user.fullName}">User</strong>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>Profile</a></li>
+                <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ============ FLASH ALERTS FRAGMENT ============ -->
+<div th:fragment="alerts">
+    <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i><span th:text="${success}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i><span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</div>
+
+<!-- ============ SCRIPTS FRAGMENT ============ -->
+<th:block th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</th:block>
+
+</body>
+</html>

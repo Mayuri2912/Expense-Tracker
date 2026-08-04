@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Security</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='security')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='Security', subtitle='Change your account password', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div class="row g-4">
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0"><i class="bi bi-key me-2"></i>Change Password</h5>
+                        </div>
+                        <div class="card-body">
+
+                            <form th:action="@{/settings/change-password}" method="post">
+
+                                <div class="mb-3">
+                                    <label class="form-label">Current Password</label>
+                                    <input type="password" name="currentPassword" class="form-control" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">New Password</label>
+                                    <input type="password" name="newPassword" class="form-control" minlength="6" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Confirm New Password</label>
+                                    <input type="password" name="confirmPassword" class="form-control" minlength="6" required>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle me-1"></i>Change Password
+                                </button>
+
+                            </form>
+
+                            <hr>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Forgot your current password instead?
+                                <a href="/forgot-password">Reset it via email OTP</a>.
+                            </p>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

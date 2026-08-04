@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Edit Category</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='categories')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='Edit Category', subtitle='Rename this category', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-warning">
+                    <h4 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Category</h4>
+                </div>
+
+                <div class="card-body">
+
+                    <form th:action="@{/update-category}" method="post">
+
+                        <input type="hidden" name="id" th:value="${category.id}">
+
+                        <div class="mb-3">
+                            <label class="form-label">Category Name</label>
+                            <input type="text" name="name" class="form-control" th:value="${category.name}" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i>Update Category
+                        </button>
+                        <a href="/categories-page" class="btn btn-secondary">Cancel</a>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

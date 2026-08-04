@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Set Budget</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='budget')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='Monthly Budget', subtitle='Set a spending limit for the month', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div class="card shadow-sm border-0 rounded-4" style="max-width:500px">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-piggy-bank me-2"></i>Set Monthly Budget</h4>
+                </div>
+
+                <div class="card-body">
+
+                    <form th:action="@{/save-budget}" method="post">
+
+                        <div class="mb-3">
+                            <label class="form-label">Budget Amount (₹)</label>
+                            <input type="number" step="0.01" min="0.01" name="amount" class="form-control"
+                                   th:value="${existingAmount}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Month</label>
+                                <select name="month" class="form-select">
+                                    <option th:each="m : ${months}"
+                                            th:value="${m.value}"
+                                            th:text="${#strings.capitalize(#strings.toLowerCase(m))}"
+                                            th:selected="${m.value == selectedMonth}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Year</label>
+                                <select name="year" class="form-select">
+                                    <option th:each="y : ${years}" th:value="${y}" th:text="${y}"
+                                            th:selected="${y == selectedYear}"></option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i>Save Budget
+                        </button>
+                        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

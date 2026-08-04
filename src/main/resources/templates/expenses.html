@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Expenses</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='expenses')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='All Expenses', subtitle='Search, filter and manage your expenses', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <!-- Search & Filter -->
+            <div class="card shadow-sm border-0 rounded-4 mb-4">
+                <div class="card-body">
+                    <form action="/expenses-page" method="get" class="row g-3 align-items-end">
+
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="keyword" class="form-control" placeholder="Title..." th:value="${keyword}">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Category</label>
+                            <select name="categoryId" class="form-select">
+                                <option value="">All</option>
+                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"
+                                        th:selected="${categoryId != null and categoryId == cat.id}"></option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Payment</label>
+                            <select name="paymentMethod" class="form-select">
+                                <option value="">All</option>
+                                <option th:each="pm : ${paymentMethods}" th:value="${pm}" th:text="${pm}"
+                                        th:selected="${paymentMethod != null and paymentMethod == pm}"></option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">From</label>
+                            <input type="date" name="startDate" class="form-control" th:value="${startDate}">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">To</label>
+                            <input type="date" name="endDate" class="form-control" th:value="${endDate}">
+                        </div>
+
+                        <div class="col-md-1">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i></button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <a href="/add-expense" class="btn btn-success"><i class="bi bi-plus-circle me-1"></i>Add Expense</a>
+                <div>
+                    <a th:href="@{/export/pdf(keyword=${keyword},categoryId=${categoryId},paymentMethod=${paymentMethod},startDate=${startDate},endDate=${endDate})}"
+                       class="btn btn-outline-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Export PDF</a>
+                    <a th:href="@{/export/excel(keyword=${keyword},categoryId=${categoryId},paymentMethod=${paymentMethod},startDate=${startDate},endDate=${endDate})}"
+                       class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body">
+
+                    <div th:if="${#lists.isEmpty(expenses)}" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-0">No expenses found matching your criteria.</p>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(expenses)}" class="table table-hover align-middle">
+
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Title</th>
+                                <th>Amount</th>
+                                <th>Category</th>
+                                <th>Date</th>
+                                <th>Payment</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr th:each="expense : ${expenses}">
+                                <td th:text="${expense.title}"></td>
+                                <td>₹<span th:text="${#numbers.formatDecimal(expense.amount,1,2)}"></span></td>
+                                <td><span class="badge bg-secondary" th:text="${expense.category != null ? expense.category.name : 'Uncategorized'}"></span></td>
+                                <td th:text="${expense.expenseDate}"></td>
+                                <td><span class="badge bg-info text-dark" th:text="${expense.paymentMethod}"></span></td>
+                                <td>
+                                    <a th:href="@{'/edit-expense/' + ${expense.id}}" class="btn btn-warning btn-sm">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                            th:attr="onclick=|setDeleteForm('/delete-expense/${expense.id}')|">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this expense? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+    function setDeleteForm(url) {
+        document.getElementById('deleteForm').setAttribute('action', url);
+    }
+</script>
+
+</body>
+</html>
