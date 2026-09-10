@@ -12,12 +12,14 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import com.expensetracker.dto.BudgetCheckResult;
 import com.expensetracker.entity.Budget;
 import com.expensetracker.entity.Expense;
 import com.expensetracker.entity.User;
 import com.expensetracker.service.BudgetService;
 import com.expensetracker.service.CategoryService;
 import com.expensetracker.service.ExpenseService;
+import com.expensetracker.service.TransactionService;
 import com.expensetracker.service.UserService;
 
 @Controller
@@ -27,13 +29,16 @@ public class PageController {
     private final ExpenseService expenseService;
     private final CategoryService categoryService;
     private final BudgetService budgetService;
+    private final TransactionService transactionService;
 
     public PageController(UserService userService, ExpenseService expenseService,
-                           CategoryService categoryService, BudgetService budgetService) {
+                           CategoryService categoryService, BudgetService budgetService,
+                           TransactionService transactionService) {
         this.userService = userService;
         this.expenseService = expenseService;
         this.categoryService = categoryService;
         this.budgetService = budgetService;
+        this.transactionService = transactionService;
     }
 
     // ---------------- HOME ----------------
@@ -113,6 +118,16 @@ public class PageController {
         model.addAttribute("categoryData", new ArrayList<>(categoryTotals.values()));
         model.addAttribute("monthlyLabels", new ArrayList<>(monthlyTotals.keySet()));
         model.addAttribute("monthlyData", new ArrayList<>(monthlyTotals.values()));
+
+        // ---- Online transactions (kept separate from the Expense-only
+        // budget card above; see TransactionServiceImpl.evaluateBudget for
+        // why online transactions are combined with expenses here) ----
+        model.addAttribute("recentTransactions", transactionService.getRecentTransactionsForUser(user, 5));
+
+        BudgetCheckResult txnBudgetCheck = transactionService.checkCurrentMonthBudget(user);
+        model.addAttribute("txnBudgetStatus", txnBudgetCheck.getStatus());
+        model.addAttribute("txnBudgetMessage", txnBudgetCheck.getMessage());
+        model.addAttribute("txnCombinedTotal", txnBudgetCheck.getCombinedTotal());
 
         return "dashboard";
     }

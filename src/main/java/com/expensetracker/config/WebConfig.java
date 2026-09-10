@@ -23,7 +23,13 @@ public class WebConfig implements WebMvcConfigurer {
                         // return a 401 JSON-friendly response instead of a redirect.
                         "/users", "/users/**",
                         "/categories", "/categories/**",
-                        "/expenses", "/expenses/**"
+                        "/expenses", "/expenses/**",
+                        // The webhook has no session at all (a real payment
+                        // provider calling in server-to-server), and /test
+                        // does its own 401 JSON response like the other REST
+                        // controllers above - neither should be redirected
+                        // to the HTML /login page.
+                        "/api/transactions/**"
                 );
     }
 }

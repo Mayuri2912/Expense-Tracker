@@ -213,6 +213,61 @@
                 </div>
             </div>
 
+            <!-- Recent Online Transactions -->
+            <div class="card shadow-sm mt-4 border-0 rounded-4">
+
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Recent Online Transactions</h4>
+                    <a href="/transactions" class="btn btn-sm btn-primary">View All</a>
+                </div>
+
+                <div class="card-body">
+
+                    <div th:if="${txnBudgetStatus == 'danger'}" class="alert alert-danger">
+                        <i class="bi bi-exclamation-octagon me-2"></i>
+                        <span th:text="${txnBudgetMessage}"></span>
+                    </div>
+                    <div th:if="${txnBudgetStatus == 'warning'}" class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span th:text="${txnBudgetMessage}"></span>
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(recentTransactions)}" class="text-center text-muted py-5">
+                        <i class="bi bi-credit-card fs-1"></i>
+                        <p class="mt-2 mb-0">No online transactions recorded yet.</p>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(recentTransactions)}" class="table table-hover align-middle">
+
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Merchant</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr th:each="txn : ${recentTransactions}">
+                                <td th:text="${txn.merchant != null ? txn.merchant : '—'}"></td>
+                                <td>₹<span th:text="${#numbers.formatDecimal(txn.amount,1,2)}"></span></td>
+                                <td><span class="badge bg-info text-dark" th:text="${txn.paymentMethod}"></span></td>
+                                <td th:text="${#temporals.format(txn.transactionDate, 'dd MMM yyyy, hh:mm a')}"></td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${txn.status.name() == 'SUCCESS'} ? 'bg-success' : (${txn.status.name() == 'PENDING'} ? 'bg-warning text-dark' : 'bg-danger')"
+                                          th:text="${txn.status}"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

@@ -182,9 +182,47 @@ CREATE TABLE `password_reset_otps` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ============================================================
+-- Table: transactions  (NEW - Online Transaction Monitoring feature)
+-- ============================================================
+-- Purely additive: does not alter users/categories/expenses/budgets/
+-- password_reset_otps in any way. Deliberately kept separate from
+-- `expenses` (see Transaction.java) - a transaction is never
+-- auto-converted into an expense, so `expense_id` stays NULL unless a
+-- future feature explicitly reconciles the two.
+DROP TABLE IF EXISTS `transactions`;
+CREATE TABLE `transactions` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `external_transaction_id` varchar(255) NOT NULL,
+  `amount` double NOT NULL,
+  `transaction_date` datetime(6) NOT NULL,
+  `payment_method` varchar(255) DEFAULT NULL,
+  `merchant` varchar(255) DEFAULT NULL,
+  `status` varchar(20) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `user_id` bigint NOT NULL,
+  `expense_id` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_transactions_external_id` (`external_transaction_id`),
+  KEY `fk_transactions_user` (`user_id`),
+  KEY `fk_transactions_expense` (`expense_id`),
+  CONSTRAINT `fk_transactions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_transactions_expense` FOREIGN KEY (`expense_id`) REFERENCES `expenses` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Two sample transactions for Mayuri (user_id=1), dated "today" via
+-- CURDATE()/NOW() (same approach as the sample budget row above) so they
+-- show up in the current month's dashboard/"/transactions" page regardless
+-- of when this file is imported.
+INSERT INTO `transactions` (`external_transaction_id`,`amount`,`transaction_date`,`payment_method`,`merchant`,`status`,`description`,`created_at`,`user_id`) VALUES
+ ('TXN-SAMPLE-001',799.00,NOW(),'UPI','Swiggy','SUCCESS','Sample online transaction',NOW(),1),
+ ('TXN-SAMPLE-002',1499.00,DATE_SUB(NOW(), INTERVAL 1 DAY),'Card','Amazon','SUCCESS','Sample online transaction',NOW(),1);
+
+-- ============================================================
 -- Helpful indexes
 -- ============================================================
 CREATE INDEX idx_expenses_user_date ON expenses (user_id, expense_date);
+CREATE INDEX idx_transactions_user_date ON transactions (user_id, transaction_date);
 
 SET FOREIGN_KEY_CHECKS = 1;
 
