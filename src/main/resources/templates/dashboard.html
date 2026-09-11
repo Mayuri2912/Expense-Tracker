@@ -139,6 +139,29 @@
                 </div>
             </div>
 
+            <!-- Smart Insights -->
+            <div class="card shadow-sm mt-4 border-0 rounded-4" th:if="${!#lists.isEmpty(insights)}">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-stars me-2"></i>Smart Insights</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6" th:each="card : ${insights}">
+                            <div class="d-flex align-items-start gap-2 p-3 border rounded-3 h-100"
+                                 th:classappend="${card.toneClass == 'warning'} ? 'border-warning-subtle bg-warning-subtle'
+                                              : (${card.toneClass == 'success'} ? 'border-success-subtle bg-success-subtle' : '')">
+                                <i class="bi fs-5" th:classappend="${card.icon} + ' ' +
+                                     (${card.toneClass == 'warning'} ? 'text-warning' : (${card.toneClass == 'success'} ? 'text-success' : 'text-primary'))"></i>
+                                <div>
+                                    <div class="fw-semibold" th:text="${card.title}">Insight</div>
+                                    <div class="text-muted small" th:text="${card.detail}">Detail</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Charts -->
             <div class="row g-4 mt-1">
                 <div class="col-md-6">
@@ -213,31 +236,29 @@
                 </div>
             </div>
 
-            <!-- Recent Online Transactions -->
+            <!-- Transactions Awaiting Review -->
             <div class="card shadow-sm mt-4 border-0 rounded-4">
 
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Recent Online Transactions</h4>
-                    <a href="/transactions" class="btn btn-sm btn-primary">View All</a>
+                    <h4 class="mb-0">Transactions Awaiting Review</h4>
+                    <a href="/transactions" class="btn btn-sm btn-primary">Open Transaction Hub</a>
                 </div>
 
                 <div class="card-body">
 
-                    <div th:if="${txnBudgetStatus == 'danger'}" class="alert alert-danger">
-                        <i class="bi bi-exclamation-octagon me-2"></i>
-                        <span th:text="${txnBudgetMessage}"></span>
-                    </div>
-                    <div th:if="${txnBudgetStatus == 'warning'}" class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <span th:text="${txnBudgetMessage}"></span>
+                    <div th:if="${pendingReviewCount > 0}" class="alert alert-warning">
+                        <i class="bi bi-inbox me-2"></i>
+                        <span th:text="${pendingReviewCount}"></span>
+                        transaction(s) worth ₹<span th:text="${#numbers.formatDecimal(pendingReviewAmount,1,2)}"></span>
+                        this month are imported but not yet reviewed - they are <strong>not</strong> counted in your budget above until you accept them.
                     </div>
 
-                    <div th:if="${#lists.isEmpty(recentTransactions)}" class="text-center text-muted py-5">
+                    <div th:if="${#lists.isEmpty(pendingReviewTransactions)}" class="text-center text-muted py-5">
                         <i class="bi bi-credit-card fs-1"></i>
-                        <p class="mt-2 mb-0">No online transactions recorded yet.</p>
+                        <p class="mt-2 mb-0">No online transactions waiting for review.</p>
                     </div>
 
-                    <table th:unless="${#lists.isEmpty(recentTransactions)}" class="table table-hover align-middle">
+                    <table th:unless="${#lists.isEmpty(pendingReviewTransactions)}" class="table table-hover align-middle">
 
                         <thead class="table-dark">
                             <tr>
@@ -245,20 +266,22 @@
                                 <th>Amount</th>
                                 <th>Payment Method</th>
                                 <th>Date</th>
-                                <th>Status</th>
+                                <th>Suggested Category</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            <tr th:each="txn : ${recentTransactions}">
-                                <td th:text="${txn.merchant != null ? txn.merchant : '—'}"></td>
-                                <td>₹<span th:text="${#numbers.formatDecimal(txn.amount,1,2)}"></span></td>
-                                <td><span class="badge bg-info text-dark" th:text="${txn.paymentMethod}"></span></td>
-                                <td th:text="${#temporals.format(txn.transactionDate, 'dd MMM yyyy, hh:mm a')}"></td>
+                            <tr th:each="row : ${pendingReviewTransactions}">
                                 <td>
-                                    <span class="badge"
-                                          th:classappend="${txn.status.name() == 'SUCCESS'} ? 'bg-success' : (${txn.status.name() == 'PENDING'} ? 'bg-warning text-dark' : 'bg-danger')"
-                                          th:text="${txn.status}"></span>
+                                    <span th:text="${row.transaction.merchant != null ? row.transaction.merchant : '—'}"></span>
+                                    <span class="badge bg-danger ms-1" th:if="${row.duplicateSuspected}" title="Possible duplicate">!</span>
+                                </td>
+                                <td>₹<span th:text="${#numbers.formatDecimal(row.transaction.amount,1,2)}"></span></td>
+                                <td><span class="badge bg-info text-dark" th:text="${row.transaction.paymentMethod}"></span></td>
+                                <td th:text="${#temporals.format(row.transaction.transactionDate, 'dd MMM yyyy')}"></td>
+                                <td>
+                                    <span th:if="${row.hasSuggestion}" class="badge bg-primary" th:text="${row.transaction.suggestedCategory != null ? row.transaction.suggestedCategory.name : row.transaction.suggestionReason}"></span>
+                                    <span th:unless="${row.hasSuggestion}" class="text-muted small">—</span>
                                 </td>
                             </tr>
                         </tbody>

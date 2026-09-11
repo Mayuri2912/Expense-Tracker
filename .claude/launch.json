@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "expense-tracker",
+      "runtimeExecutable": "D:\\Applications\\ExpenseTracker_Complete_With_Transactions\\ExpenseTracker\\mvnw.cmd",
+      "runtimeArgs": ["spring-boot:run"],
+      "port": 8080
+    }
+  ]
+}

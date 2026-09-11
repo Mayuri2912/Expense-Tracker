@@ -5,16 +5,20 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.expensetracker.dto.AcceptTransactionRequest;
+import com.expensetracker.dto.ReviewActionResponse;
 import com.expensetracker.dto.TransactionOutcome;
 import com.expensetracker.dto.TransactionResponse;
 import com.expensetracker.dto.TransactionTestRequest;
 import com.expensetracker.dto.TransactionWebhookRequest;
+import com.expensetracker.entity.Transaction;
 import com.expensetracker.entity.User;
 import com.expensetracker.service.TransactionService;
 
@@ -59,6 +63,24 @@ public class TransactionController {
         User user = requireUser(session);
         TransactionOutcome outcome = transactionService.recordTestTransaction(user, request);
         return respond(outcome);
+    }
+
+    // ---------------- REVIEW WORKFLOW ----------------
+
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<ReviewActionResponse> accept(@PathVariable Long id,
+                                                          @RequestBody AcceptTransactionRequest request,
+                                                          HttpSession session) {
+        User user = requireUser(session);
+        Transaction txn = transactionService.acceptTransaction(id, user, request);
+        return ResponseEntity.ok(ReviewActionResponse.from(txn, "Transaction accepted and added to your expenses."));
+    }
+
+    @PostMapping("/{id}/ignore")
+    public ResponseEntity<ReviewActionResponse> ignore(@PathVariable Long id, HttpSession session) {
+        User user = requireUser(session);
+        Transaction txn = transactionService.ignoreTransaction(id, user);
+        return ResponseEntity.ok(ReviewActionResponse.from(txn, "Transaction ignored."));
     }
 
     private ResponseEntity<TransactionResponse> respond(TransactionOutcome outcome) {

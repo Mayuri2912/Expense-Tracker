@@ -78,8 +78,16 @@ public class Transaction {
     // transaction starts NEEDS_REVIEW and only leaves that state through an
     // explicit user action on the /transactions review inbox.
 
+    // columnDefinition forces a plain VARCHAR rather than a native MySQL ENUM
+    // column. A MySQL ENUM/SET column that is NOT NULL with no explicit
+    // DEFAULT silently defaults any existing row to its FIRST value in
+    // alphabetical order when added via ALTER TABLE (ddl-auto=update on an
+    // existing table) - here that would have been "ACCEPTED", not
+    // "NEEDS_REVIEW". The explicit DEFAULT below is what actually makes
+    // existing rows backfill correctly.
     @Enumerated(EnumType.STRING)
-    @Column(name = "review_status", nullable = false, length = 20)
+    @Column(name = "review_status", nullable = false, length = 20,
+            columnDefinition = "VARCHAR(20) DEFAULT 'NEEDS_REVIEW'")
     private ReviewStatus reviewStatus = ReviewStatus.NEEDS_REVIEW;
 
     // The categorization engine's best guess, resolved to one of THIS user's

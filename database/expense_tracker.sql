@@ -319,6 +319,8 @@ INSERT INTO `category_rules` (`user_id`,`match_type`,`pattern`,`category_name`,`
  (NULL,'CONTAINS','dmart','Groceries',10,1,NOW()),
  (NULL,'CONTAINS','grofers','Groceries',10,1,NOW()),
  (NULL,'CONTAINS','rent','Rent',10,1,NOW()),
+ (NULL,'CONTAINS','atm','Cash',20,1,NOW()),
+ (NULL,'CONTAINS','withdrawal','Cash',20,1,NOW()),
  (NULL,'CONTAINS','udemy','Education',10,1,NOW()),
  (NULL,'CONTAINS','coursera','Education',10,1,NOW()),
  (NULL,'CONTAINS','unacademy','Education',10,1,NOW()),

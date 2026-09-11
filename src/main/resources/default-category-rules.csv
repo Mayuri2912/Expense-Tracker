@@ -59,6 +59,8 @@ CONTAINS,zepto,Groceries,10
 CONTAINS,dmart,Groceries,10
 CONTAINS,grofers,Groceries,10
 CONTAINS,rent,Rent,10
+CONTAINS,atm,Cash,20
+CONTAINS,withdrawal,Cash,20
 CONTAINS,udemy,Education,10
 CONTAINS,coursera,Education,10
 CONTAINS,unacademy,Education,10
