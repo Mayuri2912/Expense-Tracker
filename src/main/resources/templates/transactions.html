@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<title>Transaction Hub</title>
+<th:block th:insert="~{fragments/layout :: headAssets}"></th:block>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div th:replace="~{fragments/layout :: sidebar(active='transactions')}"></div>
+
+        <div class="col-md-10 p-4">
+
+            <div th:replace="~{fragments/layout :: topbar(title='Transaction Hub', subtitle='Import, review and file your online/UPI transactions as expenses', user=${loggedInUser})}"></div>
+
+            <div th:replace="~{fragments/layout :: alerts}"></div>
+
+            <div th:if="${importWarnings != null and !#lists.isEmpty(importWarnings)}" class="alert alert-warning alert-dismissible fade show">
+                <i class="bi bi-info-circle me-2"></i><strong>Some rows needed a closer look:</strong>
+                <ul class="mb-0 mt-1">
+                    <li th:each="w : ${importWarnings}" th:text="${w}"></li>
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- ================= SOURCES: import + sandbox test ================= -->
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import Bank Statement</h5>
+                            <small class="text-muted">CSV or Excel (.xlsx/.xls), up to 2&nbsp;MB / 500 rows. Deposits/credits are skipped automatically; re-importing the same file adds nothing twice.</small>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <form action="/transactions/import" method="post" enctype="multipart/form-data" class="d-flex gap-2 mt-auto">
+                                <input type="file" name="file" accept=".csv,.txt,.xlsx,.xls" class="form-control" required>
+                                <button type="submit" class="btn btn-primary text-nowrap"><i class="bi bi-upload me-1"></i>Import</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6" th:if="${testEndpointEnabled}">
+                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Simulate a Test Transaction</h5>
+                            <small class="text-muted">No real UPI/payment provider is connected - this goes through the exact same processing a real provider webhook would use.</small>
+                        </div>
+                        <div class="card-body">
+                            <form action="/transactions/test-submit" method="post" class="row g-2 align-items-end">
+                                <div class="col-6">
+                                    <label class="form-label small">Amount (₹)</label>
+                                    <input type="number" step="0.01" min="0.01" name="amount" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Merchant</label>
+                                    <input type="text" name="merchant" class="form-control form-control-sm" placeholder="e.g. Swiggy">
+                                </div>
+                                <div class="col-8">
+                                    <label class="form-label small">Payment Method</label>
+                                    <select name="paymentMethod" class="form-select form-select-sm" required>
+                                        <option th:each="pm : ${paymentMethods}" th:value="${pm}" th:text="${pm}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm w-100">Submit</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ================= RECURRING PAYMENTS ================= -->
+            <div class="card shadow-sm border-0 rounded-4 mb-4" th:if="${!#lists.isEmpty(recurringGroups)}">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Recurring Payments Detected</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4" th:each="g : ${recurringGroups}">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="fw-semibold text-capitalize" th:text="${g.merchant}">Merchant</div>
+                                <div class="text-muted small" th:text="${g.cadenceLabel}">monthly</div>
+                                <div class="fs-5">₹<span th:text="${#numbers.formatDecimal(g.typicalAmount,1,2)}"></span></div>
+                                <div class="text-muted small">
+                                    <span th:text="${g.occurrences}"></span> payments so far ·
+                                    ~₹<span th:text="${#numbers.formatDecimal(g.monthlyEstimate,1,0)}"></span>/month
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= REVIEW INBOX ================= -->
+            <div class="card shadow-sm border-0 rounded-4 mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-inbox me-2"></i>Review Inbox
+                        <span class="badge bg-secondary" th:text="${#lists.size(reviewInbox)}">0</span>
+                    </h5>
+                    <small class="text-muted">Nothing here becomes an expense until you Accept it</small>
+                </div>
+                <div class="card-body">
+
+                    <div th:if="${#lists.isEmpty(reviewInbox)}" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-0">Nothing waiting for review. Import a statement or simulate a transaction above.</p>
+                    </div>
+
+                    <div th:unless="${#lists.isEmpty(reviewInbox)}" class="vstack gap-3">
+                        <div th:each="row : ${reviewInbox}" class="border rounded-3 p-3">
+
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                <div>
+                                    <div class="fw-semibold">
+                                        <span th:text="${row.transaction.merchant != null ? row.transaction.merchant : 'Unknown merchant'}"></span>
+                                        <span class="badge bg-info text-dark ms-1" th:text="${row.transaction.paymentMethod}"></span>
+                                        <span class="badge bg-warning text-dark ms-1" th:if="${row.recurring}"><i class="bi bi-arrow-repeat"></i> Recurring</span>
+                                        <span class="badge bg-danger ms-1" th:if="${row.duplicateSuspected}"><i class="bi bi-files"></i> Possible duplicate</span>
+                                    </div>
+                                    <div class="text-muted small" th:text="${#temporals.format(row.transaction.transactionDate, 'dd MMM yyyy, hh:mm a')}"></div>
+                                    <div class="text-muted small" th:if="${row.transaction.description}" th:text="${row.transaction.description}"></div>
+                                    <div class="small mt-1" th:if="${row.hasSuggestion}">
+                                        <i class="bi bi-magic text-primary"></i>
+                                        <span th:text="${row.transaction.suggestionReason}"></span>
+                                    </div>
+                                    <div class="small text-danger mt-1" th:if="${row.duplicateSuspected}">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <span th:text="${row.duplicateWarning.reason}"></span>
+                                    </div>
+                                </div>
+                                <div class="fs-5 fw-bold text-nowrap">₹<span th:text="${#numbers.formatDecimal(row.transaction.amount,1,2)}"></span></div>
+                            </div>
+
+                            <form th:action="@{/transactions/{id}/accept(id=${row.transaction.id})}" method="post"
+                                  class="row g-2 align-items-end mt-2">
+                                <div class="col-auto">
+                                    <label class="form-label small mb-0">Category</label>
+                                    <select name="categoryId" class="form-select form-select-sm" required>
+                                        <option value="" disabled th:selected="${row.transaction.suggestedCategory == null}">Choose…</option>
+                                        <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"
+                                                th:selected="${row.transaction.suggestedCategory != null and row.transaction.suggestedCategory.id == c.id}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-0">Title (optional)</label>
+                                    <input type="text" name="title" class="form-control form-control-sm"
+                                           th:placeholder="${row.transaction.merchant != null ? row.transaction.merchant : 'Online transaction'}">
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-0">Amount</label>
+                                    <input type="number" step="0.01" name="amount" class="form-control form-control-sm"
+                                           th:value="${row.transaction.amount}">
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-0">Date</label>
+                                    <input type="date" name="expenseDate" class="form-control form-control-sm"
+                                           th:value="${#temporals.format(row.transaction.transactionDate, 'yyyy-MM-dd')}">
+                                </div>
+                                <div class="col-auto form-check" th:if="${row.hasSuggestion and row.transaction.merchant != null}">
+                                    <input class="form-check-input" type="checkbox" name="rememberRule" value="true"
+                                           th:id="'remember-' + ${row.transaction.id}">
+                                    <label class="form-check-label small" th:for="'remember-' + ${row.transaction.id}">
+                                        Always categorize this merchant this way
+                                    </label>
+                                </div>
+                                <div class="col-auto ms-auto">
+                                    <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Accept</button>
+                                </div>
+                            </form>
+                            <form th:action="@{/transactions/{id}/ignore(id=${row.transaction.id})}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-x-lg"></i> Ignore</button>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ================= HISTORY ================= -->
+            <div class="accordion" id="historyAccordion">
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acceptedHistory">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Accepted (<span th:text="${#lists.size(acceptedTransactions)}">0</span>) - already in your expenses
+                        </button>
+                    </h2>
+                    <div id="acceptedHistory" class="accordion-collapse collapse">
+                        <div class="accordion-body p-0">
+                            <div th:if="${#lists.isEmpty(acceptedTransactions)}" class="text-muted text-center py-4">None yet.</div>
+                            <table th:unless="${#lists.isEmpty(acceptedTransactions)}" class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Merchant</th><th>Amount</th><th>Date</th><th>Payment Method</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="txn : ${acceptedTransactions}">
+                                        <td th:text="${txn.merchant != null ? txn.merchant : '—'}"></td>
+                                        <td>₹<span th:text="${#numbers.formatDecimal(txn.amount,1,2)}"></span></td>
+                                        <td th:text="${#temporals.format(txn.transactionDate, 'dd MMM yyyy')}"></td>
+                                        <td><span class="badge bg-info text-dark" th:text="${txn.paymentMethod}"></span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ignoredHistory">
+                            <i class="bi bi-x-circle text-secondary me-2"></i>
+                            Ignored (<span th:text="${#lists.size(ignoredTransactions)}">0</span>)
+                        </button>
+                    </h2>
+                    <div id="ignoredHistory" class="accordion-collapse collapse">
+                        <div class="accordion-body p-0">
+                            <div th:if="${#lists.isEmpty(ignoredTransactions)}" class="text-muted text-center py-4">None yet.</div>
+                            <table th:unless="${#lists.isEmpty(ignoredTransactions)}" class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Merchant</th><th>Amount</th><th>Date</th><th></th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="txn : ${ignoredTransactions}">
+                                        <td th:text="${txn.merchant != null ? txn.merchant : '—'}"></td>
+                                        <td>₹<span th:text="${#numbers.formatDecimal(txn.amount,1,2)}"></span></td>
+                                        <td th:text="${#temporals.format(txn.transactionDate, 'dd MMM yyyy')}"></td>
+                                        <td>
+                                            <form th:action="@{/transactions/{id}/unignore(id=${txn.id})}" method="post">
+                                                <button type="submit" class="btn btn-outline-primary btn-sm">Move back to review</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

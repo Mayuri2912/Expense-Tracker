@@ -14,10 +14,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import com.expensetracker.entity.Budget;
 import com.expensetracker.entity.Expense;
+import com.expensetracker.entity.ReviewStatus;
 import com.expensetracker.entity.User;
 import com.expensetracker.service.BudgetService;
 import com.expensetracker.service.CategoryService;
 import com.expensetracker.service.ExpenseService;
+import com.expensetracker.service.InsightsService;
+import com.expensetracker.service.TransactionService;
 import com.expensetracker.service.UserService;
 
 @Controller
@@ -27,13 +30,18 @@ public class PageController {
     private final ExpenseService expenseService;
     private final CategoryService categoryService;
     private final BudgetService budgetService;
+    private final TransactionService transactionService;
+    private final InsightsService insightsService;
 
     public PageController(UserService userService, ExpenseService expenseService,
-                           CategoryService categoryService, BudgetService budgetService) {
+                           CategoryService categoryService, BudgetService budgetService,
+                           TransactionService transactionService, InsightsService insightsService) {
         this.userService = userService;
         this.expenseService = expenseService;
         this.categoryService = categoryService;
         this.budgetService = budgetService;
+        this.transactionService = transactionService;
+        this.insightsService = insightsService;
     }
 
     // ---------------- HOME ----------------
@@ -113,6 +121,20 @@ public class PageController {
         model.addAttribute("categoryData", new ArrayList<>(categoryTotals.values()));
         model.addAttribute("monthlyLabels", new ArrayList<>(monthlyTotals.keySet()));
         model.addAttribute("monthlyData", new ArrayList<>(monthlyTotals.values()));
+
+        // ---- Online transactions awaiting review ----
+        // Deliberately NOT folded into budgetAmount/monthlyExpense above: an
+        // imported transaction only affects the budget once the user Accepts
+        // it (see TransactionServiceImpl.acceptTransaction), so the budget
+        // card stays an honest picture of confirmed spending. This just
+        // surfaces what's waiting and how much it's worth.
+        model.addAttribute("pendingReviewTransactions", transactionService.getReviewInbox(user)
+                .stream().limit(5).toList());
+        model.addAttribute("pendingReviewCount", transactionService.countByReviewStatus(user, ReviewStatus.NEEDS_REVIEW));
+        model.addAttribute("pendingReviewAmount", transactionService.getPendingReviewAmountThisMonth(user));
+
+        // ---- Smart Insights ----
+        model.addAttribute("insights", insightsService.forDashboard(user));
 
         return "dashboard";
     }

@@ -2,11 +2,15 @@ package com.expensetracker.service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+
+import jakarta.persistence.criteria.Predicate;
 
 import com.expensetracker.entity.Category;
 import com.expensetracker.entity.Expense;
@@ -51,9 +55,38 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     public List<Expense> searchExpenses(User user, String keyword, Long categoryId,
                                          String paymentMethod, LocalDate startDate, LocalDate endDate) {
-        String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim().toLowerCase();
         String normalizedPayment = (paymentMethod == null || paymentMethod.isBlank()) ? null : paymentMethod;
-        return expenseRepository.searchExpenses(user, normalizedKeyword, categoryId, normalizedPayment, startDate, endDate);
+
+        // Built as a Specification (rather than a static "@Query ... :param IS
+        // NULL OR ..." JPQL string) so that a clause for an absent filter is
+        // never added to the query at all - see the note on ExpenseRepository
+        // for why the old pattern could silently return zero rows.
+        Specification<Expense> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("user"), user));
+
+            if (normalizedKeyword != null) {
+                predicates.add(cb.like(cb.lower(root.get("title")), "%" + normalizedKeyword + "%"));
+            }
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            }
+            if (normalizedPayment != null) {
+                predicates.add(cb.equal(root.get("paymentMethod"), normalizedPayment));
+            }
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("expenseDate"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("expenseDate"), endDate));
+            }
+
+            query.orderBy(cb.desc(root.get("expenseDate")));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return expenseRepository.findAll(spec);
     }
 
     @Override

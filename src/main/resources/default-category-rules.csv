@@ -1,0 +1,67 @@
+# Built-in default categorization rules for the Smart Transaction Review Hub.
+# Loaded once at startup by CategoryRuleSeeder (a no-op if any global rule
+# already exists) and mirrored in database/expense_tracker.sql.
+#
+# Columns: matchType,pattern,categoryName,priority
+#   matchType    CONTAINS | EQUALS  (case-insensitive; matched against the
+#                transaction's merchant + description, lower-cased)
+#   pattern      the text to look for
+#   categoryName the category to suggest, BY NAME - resolved to the user's own
+#                category at match time; shown only as a hint if they have no
+#                category by that name
+#   priority     lower = checked first
+#
+# Lines starting with # and blank lines are ignored. Edit freely - India-first
+# defaults, but nothing here is required for the engine to work.
+CONTAINS,swiggy,Food,10
+CONTAINS,zomato,Food,10
+CONTAINS,dominos,Food,10
+CONTAINS,mcdonald,Food,10
+CONTAINS,kfc,Food,10
+CONTAINS,restaurant,Food,20
+CONTAINS,cafe,Food,20
+CONTAINS,amazon,Shopping,10
+CONTAINS,flipkart,Shopping,10
+CONTAINS,myntra,Shopping,10
+CONTAINS,ajio,Shopping,10
+CONTAINS,uber,Travel,10
+CONTAINS,ola,Travel,10
+CONTAINS,rapido,Travel,10
+CONTAINS,irctc,Travel,10
+CONTAINS,redbus,Travel,10
+CONTAINS,indigo,Travel,20
+CONTAINS,petrol,Fuel,10
+CONTAINS,fuel,Fuel,10
+CONTAINS,hpcl,Fuel,20
+CONTAINS,bpcl,Fuel,20
+CONTAINS,iocl,Fuel,20
+CONTAINS,electricity,Bills,10
+CONTAINS,recharge,Bills,10
+CONTAINS,airtel,Bills,20
+CONTAINS,jio,Bills,20
+CONTAINS,vodafone,Bills,20
+CONTAINS,broadband,Bills,20
+CONTAINS,gas,Bills,30
+CONTAINS,netflix,Entertainment,10
+CONTAINS,spotify,Entertainment,10
+CONTAINS,hotstar,Entertainment,10
+CONTAINS,prime video,Entertainment,10
+CONTAINS,bookmyshow,Entertainment,10
+CONTAINS,pvr,Entertainment,20
+CONTAINS,pharmacy,Health,10
+CONTAINS,apollo,Health,20
+CONTAINS,pharmeasy,Health,10
+CONTAINS,1mg,Health,10
+CONTAINS,hospital,Health,20
+CONTAINS,bigbasket,Groceries,10
+CONTAINS,blinkit,Groceries,10
+CONTAINS,zepto,Groceries,10
+CONTAINS,dmart,Groceries,10
+CONTAINS,grofers,Groceries,10
+CONTAINS,rent,Rent,10
+CONTAINS,atm,Cash,20
+CONTAINS,withdrawal,Cash,20
+CONTAINS,udemy,Education,10
+CONTAINS,coursera,Education,10
+CONTAINS,unacademy,Education,10
+CONTAINS,byju,Education,10

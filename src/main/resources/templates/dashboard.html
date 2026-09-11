@@ -139,6 +139,29 @@
                 </div>
             </div>
 
+            <!-- Smart Insights -->
+            <div class="card shadow-sm mt-4 border-0 rounded-4" th:if="${!#lists.isEmpty(insights)}">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-stars me-2"></i>Smart Insights</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6" th:each="card : ${insights}">
+                            <div class="d-flex align-items-start gap-2 p-3 border rounded-3 h-100"
+                                 th:classappend="${card.toneClass == 'warning'} ? 'border-warning-subtle bg-warning-subtle'
+                                              : (${card.toneClass == 'success'} ? 'border-success-subtle bg-success-subtle' : '')">
+                                <i class="bi fs-5" th:classappend="${card.icon} + ' ' +
+                                     (${card.toneClass == 'warning'} ? 'text-warning' : (${card.toneClass == 'success'} ? 'text-success' : 'text-primary'))"></i>
+                                <div>
+                                    <div class="fw-semibold" th:text="${card.title}">Insight</div>
+                                    <div class="text-muted small" th:text="${card.detail}">Detail</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Charts -->
             <div class="row g-4 mt-1">
                 <div class="col-md-6">
@@ -204,6 +227,61 @@
                                             th:attr="onclick=|setDeleteForm('/delete-expense/${expense.id}')|">
                                         <i class="bi bi-trash"></i>
                                     </button>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+            </div>
+
+            <!-- Transactions Awaiting Review -->
+            <div class="card shadow-sm mt-4 border-0 rounded-4">
+
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Transactions Awaiting Review</h4>
+                    <a href="/transactions" class="btn btn-sm btn-primary">Open Transaction Hub</a>
+                </div>
+
+                <div class="card-body">
+
+                    <div th:if="${pendingReviewCount > 0}" class="alert alert-warning">
+                        <i class="bi bi-inbox me-2"></i>
+                        <span th:text="${pendingReviewCount}"></span>
+                        transaction(s) worth ₹<span th:text="${#numbers.formatDecimal(pendingReviewAmount,1,2)}"></span>
+                        this month are imported but not yet reviewed - they are <strong>not</strong> counted in your budget above until you accept them.
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(pendingReviewTransactions)}" class="text-center text-muted py-5">
+                        <i class="bi bi-credit-card fs-1"></i>
+                        <p class="mt-2 mb-0">No online transactions waiting for review.</p>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(pendingReviewTransactions)}" class="table table-hover align-middle">
+
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Merchant</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                                <th>Date</th>
+                                <th>Suggested Category</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr th:each="row : ${pendingReviewTransactions}">
+                                <td>
+                                    <span th:text="${row.transaction.merchant != null ? row.transaction.merchant : '—'}"></span>
+                                    <span class="badge bg-danger ms-1" th:if="${row.duplicateSuspected}" title="Possible duplicate">!</span>
+                                </td>
+                                <td>₹<span th:text="${#numbers.formatDecimal(row.transaction.amount,1,2)}"></span></td>
+                                <td><span class="badge bg-info text-dark" th:text="${row.transaction.paymentMethod}"></span></td>
+                                <td th:text="${#temporals.format(row.transaction.transactionDate, 'dd MMM yyyy')}"></td>
+                                <td>
+                                    <span th:if="${row.hasSuggestion}" class="badge bg-primary" th:text="${row.transaction.suggestedCategory != null ? row.transaction.suggestedCategory.name : row.transaction.suggestionReason}"></span>
+                                    <span th:unless="${row.hasSuggestion}" class="text-muted small">—</span>
                                 </td>
                             </tr>
                         </tbody>
