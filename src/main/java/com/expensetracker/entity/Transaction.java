@@ -67,11 +67,41 @@ public class Transaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Set only if this transaction is later reconciled into a proper,
-    // categorized Expense - never populated automatically.
+    // Set only when this transaction is ACCEPTED in the review inbox and a
+    // real Expense is created from it - never populated automatically.
     @OneToOne
     @JoinColumn(name = "expense_id")
     private Expense expense;
+
+    // ---- Smart Transaction Review Hub fields ----
+    // All nullable / defaulted, layered on top of the ingestion base. A
+    // transaction starts NEEDS_REVIEW and only leaves that state through an
+    // explicit user action on the /transactions review inbox.
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "review_status", nullable = false, length = 20)
+    private ReviewStatus reviewStatus = ReviewStatus.NEEDS_REVIEW;
+
+    // The categorization engine's best guess, resolved to one of THIS user's
+    // own categories. Null when no rule matched (the review screen then just
+    // asks the user to pick one). Never used to auto-create an Expense.
+    @ManyToOne
+    @JoinColumn(name = "suggested_category_id")
+    private Category suggestedCategory;
+
+    // Human-readable explanation shown next to the suggestion, e.g.
+    // "Merchant contains 'swiggy' -> Food (high confidence)".
+    @Column(name = "suggestion_reason")
+    private String suggestionReason;
+
+    // Set by RecurringDetectionService when this transaction looks like one
+    // instalment of a repeating series (same merchant, ~same amount, roughly
+    // monthly). recurringGroupKey ties the members of a series together.
+    @Column(nullable = false)
+    private boolean recurring = false;
+
+    @Column(name = "recurring_group_key")
+    private String recurringGroupKey;
 
     public Transaction() {
     }
@@ -80,6 +110,9 @@ public class Transaction {
     protected void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+        if (this.reviewStatus == null) {
+            this.reviewStatus = ReviewStatus.NEEDS_REVIEW;
         }
     }
 
@@ -169,5 +202,45 @@ public class Transaction {
 
     public void setExpense(Expense expense) {
         this.expense = expense;
+    }
+
+    public ReviewStatus getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(ReviewStatus reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public Category getSuggestedCategory() {
+        return suggestedCategory;
+    }
+
+    public void setSuggestedCategory(Category suggestedCategory) {
+        this.suggestedCategory = suggestedCategory;
+    }
+
+    public String getSuggestionReason() {
+        return suggestionReason;
+    }
+
+    public void setSuggestionReason(String suggestionReason) {
+        this.suggestionReason = suggestionReason;
+    }
+
+    public boolean isRecurring() {
+        return recurring;
+    }
+
+    public void setRecurring(boolean recurring) {
+        this.recurring = recurring;
+    }
+
+    public String getRecurringGroupKey() {
+        return recurringGroupKey;
+    }
+
+    public void setRecurringGroupKey(String recurringGroupKey) {
+        this.recurringGroupKey = recurringGroupKey;
     }
 }

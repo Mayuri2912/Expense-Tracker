@@ -182,13 +182,26 @@ CREATE TABLE `password_reset_otps` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ============================================================
--- Table: transactions  (NEW - Online Transaction Monitoring feature)
+-- Table: transactions  (NEW - Smart Transaction Review Hub)
 -- ============================================================
 -- Purely additive: does not alter users/categories/expenses/budgets/
 -- password_reset_otps in any way. Deliberately kept separate from
--- `expenses` (see Transaction.java) - a transaction is never
--- auto-converted into an expense, so `expense_id` stays NULL unless a
--- future feature explicitly reconciles the two.
+-- `expenses` (see Transaction.java) - a transaction is NEVER auto-converted
+-- into an expense. `expense_id` is filled in only when the user explicitly
+-- ACCEPTs the transaction in the review inbox and a real Expense is created
+-- from it.
+--
+-- Columns added by the Review Hub (all nullable or defaulted, so a plain
+-- `ddl-auto=update` on an older DB just adds them and existing rows stay
+-- valid):
+--   review_status          NEEDS_REVIEW | ACCEPTED | IGNORED  (the workflow
+--                          state; different axis from `status`, which is the
+--                          payment outcome SUCCESS/FAILED/PENDING)
+--   suggested_category_id  the categorization engine's guess, resolved to
+--                          one of this user's own categories (nullable)
+--   suggestion_reason      human-readable "why" shown in the inbox
+--   recurring / recurring_group_key  set when the transaction looks like one
+--                          instalment of a repeating series
 DROP TABLE IF EXISTS `transactions`;
 CREATE TABLE `transactions` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -202,21 +215,114 @@ CREATE TABLE `transactions` (
   `created_at` datetime(6) DEFAULT NULL,
   `user_id` bigint NOT NULL,
   `expense_id` bigint DEFAULT NULL,
+  `review_status` varchar(20) NOT NULL DEFAULT 'NEEDS_REVIEW',
+  `suggested_category_id` bigint DEFAULT NULL,
+  `suggestion_reason` varchar(255) DEFAULT NULL,
+  `recurring` tinyint(1) NOT NULL DEFAULT 0,
+  `recurring_group_key` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_transactions_external_id` (`external_transaction_id`),
   KEY `fk_transactions_user` (`user_id`),
   KEY `fk_transactions_expense` (`expense_id`),
+  KEY `fk_transactions_suggested_category` (`suggested_category_id`),
   CONSTRAINT `fk_transactions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_transactions_expense` FOREIGN KEY (`expense_id`) REFERENCES `expenses` (`id`)
+  CONSTRAINT `fk_transactions_expense` FOREIGN KEY (`expense_id`) REFERENCES `expenses` (`id`),
+  CONSTRAINT `fk_transactions_suggested_category` FOREIGN KEY (`suggested_category_id`) REFERENCES `categories` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Two sample transactions for Mayuri (user_id=1), dated "today" via
--- CURDATE()/NOW() (same approach as the sample budget row above) so they
--- show up in the current month's dashboard/"/transactions" page regardless
--- of when this file is imported.
-INSERT INTO `transactions` (`external_transaction_id`,`amount`,`transaction_date`,`payment_method`,`merchant`,`status`,`description`,`created_at`,`user_id`) VALUES
- ('TXN-SAMPLE-001',799.00,NOW(),'UPI','Swiggy','SUCCESS','Sample online transaction',NOW(),1),
- ('TXN-SAMPLE-002',1499.00,DATE_SUB(NOW(), INTERVAL 1 DAY),'Card','Amazon','SUCCESS','Sample online transaction',NOW(),1);
+-- Sample transactions for Mayuri (user_id=1), dated relative to NOW() so they
+-- always land in the current month. Left as NEEDS_REVIEW on purpose so the
+-- /transactions review inbox has something to demonstrate straight after
+-- import. One pair (Swiggy) is deliberately ~monthly so recurring detection
+-- has a series to find.
+INSERT INTO `transactions` (`external_transaction_id`,`amount`,`transaction_date`,`payment_method`,`merchant`,`status`,`description`,`created_at`,`user_id`,`review_status`) VALUES
+ ('TXN-SAMPLE-001',799.00,NOW(),'UPI','Swiggy','SUCCESS','Sample online transaction',NOW(),1,'NEEDS_REVIEW'),
+ ('TXN-SAMPLE-002',1499.00,DATE_SUB(NOW(), INTERVAL 1 DAY),'Card','Amazon','SUCCESS','Sample online transaction',NOW(),1,'NEEDS_REVIEW'),
+ ('TXN-SAMPLE-003',799.00,DATE_SUB(NOW(), INTERVAL 30 DAY),'UPI','Swiggy','SUCCESS','Sample online transaction (prev month)',NOW(),1,'ACCEPTED');
+
+-- ============================================================
+-- Table: category_rules  (NEW - Smart Transaction Review Hub)
+-- ============================================================
+-- Purely additive. Powers the configurable auto-categorization engine:
+-- "if the transaction text matches PATTERN, suggest CATEGORY".
+--   user_id IS NULL  -> built-in default rule, applies to every user, targets
+--                       a category by NAME (category_id NULL) because
+--                       categories are per-user.
+--   user_id set      -> a personal rule created from the review inbox
+--                       ("remember this"), also carries a direct category_id.
+-- The rows below are the same defaults the application self-seeds at startup
+-- from src/main/resources/default-category-rules.csv (the seeder is a no-op if
+-- any user_id IS NULL rule already exists), listed here so this file stays a
+-- complete picture of the schema + starting data.
+DROP TABLE IF EXISTS `category_rules`;
+CREATE TABLE `category_rules` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `match_type` varchar(20) NOT NULL DEFAULT 'CONTAINS',
+  `pattern` varchar(255) NOT NULL,
+  `category_name` varchar(100) NOT NULL,
+  `category_id` bigint DEFAULT NULL,
+  `priority` int NOT NULL DEFAULT 100,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_category_rules_user` (`user_id`),
+  KEY `fk_category_rules_category` (`category_id`),
+  CONSTRAINT `fk_category_rules_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_category_rules_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT INTO `category_rules` (`user_id`,`match_type`,`pattern`,`category_name`,`priority`,`active`,`created_at`) VALUES
+ (NULL,'CONTAINS','swiggy','Food',10,1,NOW()),
+ (NULL,'CONTAINS','zomato','Food',10,1,NOW()),
+ (NULL,'CONTAINS','dominos','Food',10,1,NOW()),
+ (NULL,'CONTAINS','mcdonald','Food',10,1,NOW()),
+ (NULL,'CONTAINS','kfc','Food',10,1,NOW()),
+ (NULL,'CONTAINS','restaurant','Food',20,1,NOW()),
+ (NULL,'CONTAINS','cafe','Food',20,1,NOW()),
+ (NULL,'CONTAINS','amazon','Shopping',10,1,NOW()),
+ (NULL,'CONTAINS','flipkart','Shopping',10,1,NOW()),
+ (NULL,'CONTAINS','myntra','Shopping',10,1,NOW()),
+ (NULL,'CONTAINS','ajio','Shopping',10,1,NOW()),
+ (NULL,'CONTAINS','uber','Travel',10,1,NOW()),
+ (NULL,'CONTAINS','ola','Travel',10,1,NOW()),
+ (NULL,'CONTAINS','rapido','Travel',10,1,NOW()),
+ (NULL,'CONTAINS','irctc','Travel',10,1,NOW()),
+ (NULL,'CONTAINS','redbus','Travel',10,1,NOW()),
+ (NULL,'CONTAINS','indigo','Travel',20,1,NOW()),
+ (NULL,'CONTAINS','petrol','Fuel',10,1,NOW()),
+ (NULL,'CONTAINS','fuel','Fuel',10,1,NOW()),
+ (NULL,'CONTAINS','hpcl','Fuel',20,1,NOW()),
+ (NULL,'CONTAINS','bpcl','Fuel',20,1,NOW()),
+ (NULL,'CONTAINS','iocl','Fuel',20,1,NOW()),
+ (NULL,'CONTAINS','electricity','Bills',10,1,NOW()),
+ (NULL,'CONTAINS','recharge','Bills',10,1,NOW()),
+ (NULL,'CONTAINS','airtel','Bills',20,1,NOW()),
+ (NULL,'CONTAINS','jio','Bills',20,1,NOW()),
+ (NULL,'CONTAINS','vodafone','Bills',20,1,NOW()),
+ (NULL,'CONTAINS','broadband','Bills',20,1,NOW()),
+ (NULL,'CONTAINS','gas','Bills',30,1,NOW()),
+ (NULL,'CONTAINS','netflix','Entertainment',10,1,NOW()),
+ (NULL,'CONTAINS','spotify','Entertainment',10,1,NOW()),
+ (NULL,'CONTAINS','hotstar','Entertainment',10,1,NOW()),
+ (NULL,'CONTAINS','prime video','Entertainment',10,1,NOW()),
+ (NULL,'CONTAINS','bookmyshow','Entertainment',10,1,NOW()),
+ (NULL,'CONTAINS','pvr','Entertainment',20,1,NOW()),
+ (NULL,'CONTAINS','pharmacy','Health',10,1,NOW()),
+ (NULL,'CONTAINS','apollo','Health',20,1,NOW()),
+ (NULL,'CONTAINS','pharmeasy','Health',10,1,NOW()),
+ (NULL,'CONTAINS','1mg','Health',10,1,NOW()),
+ (NULL,'CONTAINS','hospital','Health',20,1,NOW()),
+ (NULL,'CONTAINS','bigbasket','Groceries',10,1,NOW()),
+ (NULL,'CONTAINS','blinkit','Groceries',10,1,NOW()),
+ (NULL,'CONTAINS','zepto','Groceries',10,1,NOW()),
+ (NULL,'CONTAINS','dmart','Groceries',10,1,NOW()),
+ (NULL,'CONTAINS','grofers','Groceries',10,1,NOW()),
+ (NULL,'CONTAINS','rent','Rent',10,1,NOW()),
+ (NULL,'CONTAINS','udemy','Education',10,1,NOW()),
+ (NULL,'CONTAINS','coursera','Education',10,1,NOW()),
+ (NULL,'CONTAINS','unacademy','Education',10,1,NOW()),
+ (NULL,'CONTAINS','byju','Education',10,1,NOW());
 
 -- ============================================================
 -- Helpful indexes

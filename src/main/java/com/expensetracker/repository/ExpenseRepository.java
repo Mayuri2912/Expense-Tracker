@@ -30,6 +30,12 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     Optional<Expense> findByIdAndUser(Long id, User user);
 
+    // Candidate window for detecting that an incoming online transaction is
+    // really something the user already logged by hand - DuplicateDetection
+    // Service then compares amount and merchant/title within this window.
+    // Additive, read-only, user-scoped: does not affect any existing query.
+    List<Expense> findByUserAndExpenseDateBetween(User user, LocalDate startDate, LocalDate endDate);
+
     long countByUser(User user);
 
     long countByCategory(Category category);

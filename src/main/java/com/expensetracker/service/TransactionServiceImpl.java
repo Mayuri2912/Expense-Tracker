@@ -6,25 +6,42 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.expensetracker.dto.AcceptTransactionRequest;
 import com.expensetracker.dto.BudgetCheckResult;
+import com.expensetracker.dto.CategorySuggestion;
+import com.expensetracker.dto.RecurringGroup;
+import com.expensetracker.dto.StatementImportResult;
 import com.expensetracker.dto.TransactionOutcome;
+import com.expensetracker.dto.TransactionReviewView;
 import com.expensetracker.dto.TransactionTestRequest;
 import com.expensetracker.dto.TransactionWebhookRequest;
 import com.expensetracker.entity.Budget;
+import com.expensetracker.entity.Category;
+import com.expensetracker.entity.CategoryRule;
+import com.expensetracker.entity.Expense;
+import com.expensetracker.entity.ReviewStatus;
+import com.expensetracker.entity.RuleMatchType;
 import com.expensetracker.entity.Transaction;
 import com.expensetracker.entity.TransactionStatus;
 import com.expensetracker.entity.User;
+import com.expensetracker.repository.CategoryRuleRepository;
 import com.expensetracker.repository.TransactionRepository;
 import com.expensetracker.repository.UserRepository;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
 
     private final TransactionRepository transactionRepository;
 
@@ -37,14 +54,34 @@ public class TransactionServiceImpl implements TransactionService {
     private final ExpenseService expenseService;
     private final BudgetService budgetService;
 
+    // ---- Smart Transaction Review Hub collaborators ----
+    private final CategoryService categoryService;
+    private final CategoryRuleRepository categoryRuleRepository;
+    private final CategorizationService categorizationService;
+    private final DuplicateDetectionService duplicateDetectionService;
+    private final RecurringDetectionService recurringDetectionService;
+    private final StatementImportService statementImportService;
+
     public TransactionServiceImpl(TransactionRepository transactionRepository,
                                    UserRepository userRepository,
                                    ExpenseService expenseService,
-                                   BudgetService budgetService) {
+                                   BudgetService budgetService,
+                                   CategoryService categoryService,
+                                   CategoryRuleRepository categoryRuleRepository,
+                                   CategorizationService categorizationService,
+                                   DuplicateDetectionService duplicateDetectionService,
+                                   RecurringDetectionService recurringDetectionService,
+                                   StatementImportService statementImportService) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.expenseService = expenseService;
         this.budgetService = budgetService;
+        this.categoryService = categoryService;
+        this.categoryRuleRepository = categoryRuleRepository;
+        this.categorizationService = categorizationService;
+        this.duplicateDetectionService = duplicateDetectionService;
+        this.recurringDetectionService = recurringDetectionService;
+        this.statementImportService = statementImportService;
     }
 
     @Override
@@ -97,9 +134,10 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     /**
-     * Shared validation + duplicate-protection + save + budget-check flow
-     * used by both the webhook and the test endpoint, once each has already
-     * resolved which User the transaction belongs to.
+     * Shared validation + duplicate-protection + categorize + save + budget-
+     * check flow used by both the webhook and the test endpoint, once each has
+     * already resolved which User the transaction belongs to. The saved
+     * transaction always starts life NEEDS_REVIEW.
      */
     private TransactionOutcome process(User user, String transactionId, Double amount, String paymentMethod,
                                         String merchant, LocalDateTime transactionDate, String statusRaw,
@@ -143,6 +181,8 @@ public class TransactionServiceImpl implements TransactionService {
         transaction.setStatus(status);
         transaction.setDescription(description);
         transaction.setUser(user);
+        transaction.setReviewStatus(ReviewStatus.NEEDS_REVIEW);
+        applySuggestion(transaction, user);
 
         try {
             transaction = transactionRepository.save(transaction);
@@ -156,7 +196,17 @@ public class TransactionServiceImpl implements TransactionService {
             return buildOutcome(winner, true);
         }
 
+        recomputeRecurringQuietly(user);
         return buildOutcome(transaction, false);
+    }
+
+    private void applySuggestion(Transaction transaction, User user) {
+        CategorySuggestion suggestion = categorizationService.suggest(
+                user, transaction.getMerchant(), transaction.getDescription());
+        if (suggestion.isMatched()) {
+            transaction.setSuggestedCategory(suggestion.getCategory());
+            transaction.setSuggestionReason(suggestion.getReason());
+        }
     }
 
     private TransactionStatus parseStatus(String statusRaw) {
@@ -193,13 +243,186 @@ public class TransactionServiceImpl implements TransactionService {
         return evaluateBudget(user, today.getMonthValue(), today.getYear());
     }
 
+    // =====================================================================
+    // Smart Transaction Review Hub
+    // =====================================================================
+
+    @Override
+    public StatementImportResult importStatement(User user, MultipartFile file) {
+        return statementImportService.importStatement(user, file);
+    }
+
+    @Override
+    public List<TransactionReviewView> getReviewInbox(User user) {
+        return transactionRepository
+                .findByUserAndReviewStatusOrderByTransactionDateDesc(user, ReviewStatus.NEEDS_REVIEW)
+                .stream()
+                .map(txn -> new TransactionReviewView(
+                        txn, duplicateDetectionService.checkAgainstExpenses(user, txn).orElse(null)))
+                .toList();
+    }
+
+    @Override
+    public List<Transaction> getTransactionsByReviewStatus(User user, ReviewStatus status) {
+        return transactionRepository.findByUserAndReviewStatusOrderByTransactionDateDesc(user, status);
+    }
+
+    @Override
+    public long countByReviewStatus(User user, ReviewStatus status) {
+        return transactionRepository.countByUserAndReviewStatus(user, status);
+    }
+
+    @Override
+    public double getPendingReviewAmountThisMonth(User user) {
+        LocalDate today = LocalDate.now();
+        return transactionRepository.sumAmountByUserAndStatusAndReviewStatusAndMonthAndYear(
+                user, TransactionStatus.SUCCESS, ReviewStatus.NEEDS_REVIEW,
+                today.getMonthValue(), today.getYear());
+    }
+
+    @Override
+    public List<RecurringGroup> getRecurringGroups(User user) {
+        return recurringDetectionService.summarizeForUser(user);
+    }
+
+    @Override
+    @Transactional
+    public Transaction acceptTransaction(Long transactionId, User user, AcceptTransactionRequest request) {
+        Transaction txn = requireOwnedTransaction(transactionId, user);
+        if (txn.getReviewStatus() == ReviewStatus.ACCEPTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This transaction has already been accepted into your expenses.");
+        }
+        if (request == null || request.getCategoryId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a category to file this under.");
+        }
+
+        // Re-fetched server-side so a tampered categoryId can never attach
+        // another user's category (same guard the expense form uses).
+        Category category = categoryService.getCategoryByIdForUser(request.getCategoryId(), user);
+
+        Expense expense = new Expense();
+        expense.setTitle(firstNonBlank(request.getTitle(), txn.getMerchant(), "Online transaction"));
+        expense.setAmount(request.getAmount() != null && request.getAmount() > 0 ? request.getAmount() : txn.getAmount());
+        expense.setExpenseDate(request.getExpenseDate() != null
+                ? request.getExpenseDate() : txn.getTransactionDate().toLocalDate());
+        expense.setPaymentMethod(firstNonBlank(request.getPaymentMethod(), txn.getPaymentMethod(), null));
+        expense.setDescription(buildExpenseDescription(txn));
+        expense.setCategory(category);
+
+        Expense saved = expenseService.addExpense(expense, user);
+
+        txn.setExpense(saved);
+        txn.setReviewStatus(ReviewStatus.ACCEPTED);
+        transactionRepository.save(txn);
+
+        if (request.isRememberRule()) {
+            rememberRule(user, txn.getMerchant(), category);
+        }
+        recomputeRecurringQuietly(user);
+
+        log.info("User {} accepted transaction {} -> expense {}", user.getId(),
+                txn.getExternalTransactionId(), saved.getId());
+        return txn;
+    }
+
+    @Override
+    @Transactional
+    public Transaction ignoreTransaction(Long transactionId, User user) {
+        Transaction txn = requireOwnedTransaction(transactionId, user);
+        if (txn.getReviewStatus() == ReviewStatus.ACCEPTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This transaction is already an expense. Delete that expense instead if it was a mistake.");
+        }
+        txn.setReviewStatus(ReviewStatus.IGNORED);
+        transactionRepository.save(txn);
+        recomputeRecurringQuietly(user);
+        return txn;
+    }
+
+    @Override
+    @Transactional
+    public Transaction moveBackToReview(Long transactionId, User user) {
+        Transaction txn = requireOwnedTransaction(transactionId, user);
+        if (txn.getReviewStatus() == ReviewStatus.ACCEPTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This transaction is already an expense and can't be moved back.");
+        }
+        txn.setReviewStatus(ReviewStatus.NEEDS_REVIEW);
+        transactionRepository.save(txn);
+        recomputeRecurringQuietly(user);
+        return txn;
+    }
+
+    // ---- helpers --------------------------------------------------------
+
+    private Transaction requireOwnedTransaction(Long id, User user) {
+        return transactionRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+    }
+
+    private String buildExpenseDescription(Transaction txn) {
+        String base = "From online transaction " + txn.getExternalTransactionId();
+        if (txn.getDescription() != null && !txn.getDescription().isBlank()) {
+            base = base + " — " + txn.getDescription();
+        }
+        return base.length() > 255 ? base.substring(0, 255) : base;
+    }
+
+    /** Save a personal "merchant text contains X -> this category" rule, unless an equivalent one already exists. */
+    private void rememberRule(User user, String merchant, Category category) {
+        if (merchant == null || merchant.isBlank()) {
+            return;
+        }
+        String pattern = merchant.trim().toLowerCase();
+        if (pattern.length() > 100) {
+            pattern = pattern.substring(0, 100);
+        }
+        final String finalPattern = pattern;
+
+        boolean exists = categoryRuleRepository.findByUserOrderByPriorityAscIdAsc(user).stream()
+                .anyMatch(r -> finalPattern.equalsIgnoreCase(r.getPattern())
+                        && category.getName().equalsIgnoreCase(r.getCategoryName()));
+        if (exists) {
+            return;
+        }
+
+        CategoryRule rule = new CategoryRule();
+        rule.setUser(user);
+        rule.setMatchType(RuleMatchType.CONTAINS);
+        rule.setPattern(finalPattern);
+        rule.setCategoryName(category.getName());
+        rule.setCategory(category);
+        rule.setPriority(50); // personal rules sit ahead of the priority-100 defaults
+        rule.setActive(true);
+        categoryRuleRepository.save(rule);
+        log.info("User {} saved personal categorization rule '{}' -> {}", user.getId(), finalPattern, category.getName());
+    }
+
+    private void recomputeRecurringQuietly(User user) {
+        try {
+            recurringDetectionService.recomputeForUser(user);
+        } catch (RuntimeException ex) {
+            // Non-critical: a failure here must never break ingestion or an accept/ignore.
+            log.warn("Recurring recompute for user {} failed: {}", user.getId(), ex.toString());
+        }
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v.trim();
+            }
+        }
+        return null;
+    }
+
     /**
      * The single place that combines existing Expense records with SUCCESS
      * online transactions and compares the total against the user's Budget
-     * for that month - reused by both the transaction-processing flow and
-     * the dashboard, so the two can never disagree. Uses the exact same
-     * three-tier status PageController.dashboard() already computes
-     * (success / warning / danger) so both pieces of UI stay consistent.
+     * for that month - used by the webhook/test response. (The dashboard's
+     * primary budget figure now counts confirmed expenses only; see
+     * PageController.)
      */
     private BudgetCheckResult evaluateBudget(User user, int month, int year) {
         double monthlyExpense = expenseService.getMonthlyExpenseAmount(user, month, year);
@@ -220,7 +443,7 @@ public class TransactionServiceImpl implements TransactionService {
         } else if (combined > budgetAmount) {
             status = "danger";
             double over = combined - budgetAmount;
-            message = String.format("Your monthly budget has been exceeded by \u20b9%.2f.", over);
+            message = String.format("Your monthly budget has been exceeded by ₹%.2f.", over);
         } else if (percentUsed >= 80) {
             status = "warning";
             message = String.format("Warning: you have used %.0f%% of your monthly budget.", percentUsed);
