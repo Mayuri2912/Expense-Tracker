@@ -1,6 +1,7 @@
 package com.expensetracker.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -16,6 +17,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     long countByUser(User user);
 
     boolean existsByNameIgnoreCaseAndUser(String name, User user);
+
+    Optional<Category> findByNameIgnoreCaseAndUser(String name, User user);
 
     boolean existsByNameIgnoreCaseAndUserAndIdNot(String name, User user, Long id);
 

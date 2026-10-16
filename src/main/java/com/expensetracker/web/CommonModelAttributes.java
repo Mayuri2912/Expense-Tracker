@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 import com.expensetracker.entity.User;
+import java.util.List;
 
 /**
  * Makes "loggedInUser" available in every Thymeleaf page's model automatically,
@@ -18,5 +19,10 @@ public class CommonModelAttributes {
     @ModelAttribute("loggedInUser")
     public User loggedInUser(HttpSession session) {
         return CurrentUser.from(session);
+    }
+
+    @ModelAttribute("paymentMethods")
+    public List<String> paymentMethods() {
+        return List.of("Cash", "UPI", "Card", "Net Banking", "Other");
     }
 }

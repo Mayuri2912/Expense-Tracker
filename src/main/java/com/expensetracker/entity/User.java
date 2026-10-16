@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -18,19 +19,15 @@ public class User implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /*
-     * Legacy column from an earlier version of the schema. The database still
-     * has a NOT NULL "name" column alongside "full_name" - rather than altering
-     * the live database, this field is kept in sync automatically (see
-     * syncLegacyName()) so inserts/updates never violate the NOT NULL
-     * constraint. It is intentionally not exposed on any form; "fullName" is
-     * the single source of truth everywhere else in the application.
-     */
-    @Column(name = "name", length = 100, nullable = false)
+    @NotBlank(message = "Username is required")
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    // Keep the columns used by the existing MySQL schema populated while the
+    // application uses username as its canonical display/login name.
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @NotBlank(message = "Full name is required")
-    @Size(max = 100, message = "Full name must be under 100 characters")
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
@@ -45,31 +42,13 @@ public class User implements Serializable {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
-    @Column(name = "created_at")
+    @Column(name = "api_key", unique = true, length = 64)
+    private String apiKey;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public User() {
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-        syncLegacyName();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        syncLegacyName();
-    }
-
-    // Keeps the legacy "name" column mirroring "fullName" so the NOT NULL
-    // constraint on the old column is always satisfied without exposing it.
-    private void syncLegacyName() {
-        if (this.fullName != null) {
-            this.name = this.fullName.length() > 100 ? this.fullName.substring(0, 100) : this.fullName;
-        }
     }
 
     public Long getId() {
@@ -80,12 +59,41 @@ public class User implements Serializable {
         this.id = id;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+        this.name = username;
+        this.fullName = username;
+    }
+
+    // Kept as a view/template alias while the application uses username internally.
     public String getFullName() {
-        return fullName;
+        return fullName != null && !fullName.isBlank() ? fullName : username;
     }
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+        this.name = fullName;
+        this.username = fullName;
+    }
+
+    @PostLoad
+    private void populateUsernameFromLegacyName() {
+        if (username == null || username.isBlank()) {
+            username = fullName != null && !fullName.isBlank() ? fullName : name;
+        }
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void synchronizeNameColumns() {
+        if (username != null && !username.isBlank()) {
+            name = username;
+            fullName = username;
+        }
     }
 
     public String getEmail() {
@@ -104,11 +112,15 @@ public class User implements Serializable {
         this.password = password;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public String getApiKey() {
+        return apiKey;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 }

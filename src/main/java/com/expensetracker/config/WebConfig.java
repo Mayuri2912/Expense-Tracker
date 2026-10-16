@@ -23,7 +23,8 @@ public class WebConfig implements WebMvcConfigurer {
                         // return a 401 JSON-friendly response instead of a redirect.
                         "/users", "/users/**",
                         "/categories", "/categories/**",
-                        "/expenses", "/expenses/**"
+                        "/expenses", "/expenses/**",
+                        "/api/v1/transactions/**"
                 );
     }
 }

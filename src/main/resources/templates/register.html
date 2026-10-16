@@ -44,10 +44,10 @@ body{
 
 <div class="mb-3">
     <label class="form-label">Full Name</label>
-    <input type="text" class="form-control" th:field="*{fullName}"
-           th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
-           placeholder="Enter Full Name">
-    <div class="invalid-feedback" th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}"></div>
+    <input type="text" class="form-control" th:field="*{username}"
+           th:classappend="${#fields.hasErrors('username')} ? 'is-invalid'"
+           placeholder="Enter Full Name" required>
+    <div class="invalid-feedback" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></div>
 </div>
 
 <div class="mb-3">

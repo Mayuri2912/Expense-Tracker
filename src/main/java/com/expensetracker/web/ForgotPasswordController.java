@@ -8,14 +8,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.expensetracker.service.PasswordResetService;
+import com.expensetracker.service.EmailService;
 
 @Controller
 public class ForgotPasswordController {
 
     private final PasswordResetService passwordResetService;
+    private final EmailService emailService;
 
-    public ForgotPasswordController(PasswordResetService passwordResetService) {
+    public ForgotPasswordController(PasswordResetService passwordResetService,
+                                    EmailService emailService) {
         this.passwordResetService = passwordResetService;
+        this.emailService = emailService;
     }
 
     // ---------------- STEP 1: request an OTP ----------------
@@ -26,13 +30,22 @@ public class ForgotPasswordController {
     }
 
     @PostMapping("/forgot-password")
-    public String requestOtp(@RequestParam String email, RedirectAttributes redirectAttributes) {
+    public String requestOtp(@RequestParam String email,
+                             Model model,
+                             RedirectAttributes redirectAttributes) {
+        if (!emailService.isConfigured()) {
+            model.addAttribute("email", email);
+            model.addAttribute("error",
+                    "Email delivery is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, then restart the app.");
+            return "forgot-password";
+        }
+
         passwordResetService.requestOtp(email);
 
         // Generic message regardless of whether the email exists, so the
         // form can't be used to discover which addresses are registered.
         redirectAttributes.addFlashAttribute("success",
-                "If an account exists for that email, an OTP has been sent. Check your inbox.");
+                "If an account exists, an OTP will be sent. Check your inbox and spam folder.");
         redirectAttributes.addAttribute("email", email);
         return "redirect:/reset-password";
     }

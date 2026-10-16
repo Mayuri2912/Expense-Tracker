@@ -28,8 +28,10 @@ public class PageController {
     private final CategoryService categoryService;
     private final BudgetService budgetService;
 
-    public PageController(UserService userService, ExpenseService expenseService,
-                           CategoryService categoryService, BudgetService budgetService) {
+    public PageController(UserService userService,
+                          ExpenseService expenseService,
+                          CategoryService categoryService,
+                          BudgetService budgetService) {
         this.userService = userService;
         this.expenseService = expenseService;
         this.categoryService = categoryService;
@@ -62,31 +64,55 @@ public class PageController {
         User user = CurrentUser.from(session);
         LocalDate today = LocalDate.now();
 
-        List<Expense> allExpenses = expenseService.getAllExpensesForUser(user);
-        List<Expense> recentExpenses = allExpenses.stream().limit(5).toList();
+        List<Expense> allExpenses =
+                expenseService.getAllExpensesForUser(user);
+
+        List<Expense> recentExpenses =
+                allExpenses.stream()
+                        .limit(5)
+                        .toList();
+
         double todaysExpense = allExpenses.stream()
-                .filter(e -> today.equals(e.getExpenseDate()))
+                .filter(e -> today.equals(e.getDate()))
                 .mapToDouble(Expense::getAmount)
                 .sum();
 
         model.addAttribute("loggedInUser", user);
         model.addAttribute("totalUsers", userService.getUserCount());
-        model.addAttribute("totalCategories", categoryService.getCategoryCount(user));
-        model.addAttribute("totalExpenses", expenseService.getExpenseCount(user));
+        model.addAttribute(
+                "totalCategories",
+                categoryService.getCategoryCount(user)
+        );
+        model.addAttribute(
+                "totalExpenses",
+                expenseService.getExpenseCount(user)
+        );
         model.addAttribute("recentExpenses", recentExpenses);
         model.addAttribute("todaysExpense", todaysExpense);
 
         // ---- Monthly budget & alerts ----
+
         int month = today.getMonthValue();
         int year = today.getYear();
 
-        double monthlyExpense = expenseService.getMonthlyExpenseAmount(user, month, year);
-        Optional<Budget> budgetOpt = budgetService.getBudget(user, month, year);
-        double budgetAmount = budgetOpt.map(Budget::getAmount).orElse(0.0);
+        double monthlyExpense =
+                expenseService.getMonthlyExpenseAmount(user, month, year);
+
+        Optional<Budget> budgetOpt =
+                budgetService.getBudget(user, month, year);
+
+        double budgetAmount =
+                budgetOpt.map(Budget::getAmount).orElse(0.0);
+
         double remaining = budgetAmount - monthlyExpense;
-        double percentUsed = budgetAmount > 0 ? (monthlyExpense / budgetAmount) * 100.0 : 0.0;
+
+        double percentUsed =
+                budgetAmount > 0
+                        ? (monthlyExpense / budgetAmount) * 100.0
+                        : 0.0;
 
         String budgetStatus = "none";
+
         if (budgetOpt.isPresent()) {
             if (monthlyExpense > budgetAmount) {
                 budgetStatus = "danger";
@@ -101,18 +127,40 @@ public class PageController {
         model.addAttribute("budgetAmount", budgetAmount);
         model.addAttribute("monthlyExpense", monthlyExpense);
         model.addAttribute("remainingBudget", remaining);
-        model.addAttribute("budgetPercentUsed", Math.min(percentUsed, 100.0));
+        model.addAttribute(
+                "budgetPercentUsed",
+                Math.min(percentUsed, 100.0)
+        );
         model.addAttribute("budgetPercentRaw", percentUsed);
         model.addAttribute("budgetStatus", budgetStatus);
 
         // ---- Chart data ----
-        Map<String, Double> categoryTotals = expenseService.getCategoryWiseTotals(user);
-        Map<String, Double> monthlyTotals = expenseService.getLastSixMonthsTotals(user);
 
-        model.addAttribute("categoryLabels", new ArrayList<>(categoryTotals.keySet()));
-        model.addAttribute("categoryData", new ArrayList<>(categoryTotals.values()));
-        model.addAttribute("monthlyLabels", new ArrayList<>(monthlyTotals.keySet()));
-        model.addAttribute("monthlyData", new ArrayList<>(monthlyTotals.values()));
+        Map<String, Double> categoryTotals =
+                expenseService.getCategoryWiseTotals(user);
+
+        Map<String, Double> monthlyTotals =
+                expenseService.getLastSixMonthsTotals(user);
+
+        model.addAttribute(
+                "categoryLabels",
+                new ArrayList<>(categoryTotals.keySet())
+        );
+
+        model.addAttribute(
+                "categoryData",
+                new ArrayList<>(categoryTotals.values())
+        );
+
+        model.addAttribute(
+                "monthlyLabels",
+                new ArrayList<>(monthlyTotals.keySet())
+        );
+
+        model.addAttribute(
+                "monthlyData",
+                new ArrayList<>(monthlyTotals.values())
+        );
 
         return "dashboard";
     }

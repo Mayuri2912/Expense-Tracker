@@ -48,9 +48,9 @@
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Expense Date</label>
-                                <input type="date" class="form-control" th:field="*{expenseDate}"
-                                       th:classappend="${#fields.hasErrors('expenseDate')} ? 'is-invalid'">
-                                <div class="invalid-feedback" th:if="${#fields.hasErrors('expenseDate')}" th:errors="*{expenseDate}"></div>
+                                <input type="date" class="form-control" th:field="*{date}"
+                                       th:classappend="${#fields.hasErrors('date')} ? 'is-invalid'">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('date')}" th:errors="*{date}"></div>
                             </div>
                         </div>
 
@@ -67,7 +67,8 @@
                                 <select class="form-select" name="categoryId" required
                                         th:classappend="${#fields.hasErrors('category')} ? 'is-invalid'">
                                     <option value="">Select Category</option>
-                                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"
+                                            th:selected="${expense.categoryId != null and expense.categoryId == cat.id}"></option>
                                 </select>
                                 <div class="invalid-feedback" th:if="${#fields.hasErrors('category')}" th:errors="*{category}"></div>
                                 <div class="form-text" th:if="${#lists.isEmpty(categories)}">

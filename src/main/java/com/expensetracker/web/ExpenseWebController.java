@@ -13,6 +13,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.expensetracker.entity.Category;
 import com.expensetracker.entity.Expense;
 import com.expensetracker.entity.User;
 import com.expensetracker.service.CategoryService;
@@ -21,12 +22,11 @@ import com.expensetracker.service.ExpenseService;
 @Controller
 public class ExpenseWebController {
 
-    private static final List<String> PAYMENT_METHODS = List.of("Cash", "UPI", "Card", "Net Banking");
-
     private final ExpenseService expenseService;
     private final CategoryService categoryService;
 
-    public ExpenseWebController(ExpenseService expenseService, CategoryService categoryService) {
+    public ExpenseWebController(ExpenseService expenseService,
+                                CategoryService categoryService) {
         this.expenseService = expenseService;
         this.categoryService = categoryService;
     }
@@ -35,111 +35,200 @@ public class ExpenseWebController {
 
     @GetMapping("/add-expense")
     public String addExpenseForm(Model model, HttpSession session) {
+        User user = CurrentUser.from(session);
+
         model.addAttribute("expense", new Expense());
-        model.addAttribute("categories", categoryService.getAllCategoriesForUser(CurrentUser.from(session)));
-        model.addAttribute("paymentMethods", PAYMENT_METHODS);
+        model.addAttribute(
+                "categories",
+                categoryService.getAllCategoriesForUser(user)
+        );
+
         return "add-expense";
     }
 
     @PostMapping("/save-expense")
-    public String saveExpense(@Valid @ModelAttribute("expense") Expense expense,
-                               BindingResult bindingResult,
-                               @RequestParam(required = false) Long categoryId,
-                               HttpSession session,
-                               Model model,
-                               RedirectAttributes redirectAttributes) {
+    public String saveExpense(
+            @Valid @ModelAttribute("expense") Expense expense,
+            BindingResult bindingResult,
+            @RequestParam(required = false) Long categoryId,
+            HttpSession session,
+            Model model,
+            RedirectAttributes redirectAttributes) {
 
         User user = CurrentUser.from(session);
 
-        // The database requires every expense to have a category (category_id is
-        // NOT NULL), so this must be validated before we ever attempt to save.
         if (categoryId == null) {
-            bindingResult.rejectValue("category", "required", "Please select a category");
+            bindingResult.rejectValue(
+                    "category",
+                    "required",
+                    "Please select a category"
+            );
         }
 
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", categoryService.getAllCategoriesForUser(user));
-            model.addAttribute("paymentMethods", PAYMENT_METHODS);
+            model.addAttribute(
+                    "categories",
+                    categoryService.getAllCategoriesForUser(user)
+            );
             return "add-expense";
         }
 
-        // Look the category up server-side (rather than trusting a bound object)
-        // so a tampered categoryId can never attach another user's category.
-        expense.setCategory(categoryService.getCategoryByIdForUser(categoryId, user));
+        Category category =
+                categoryService.getCategoryByIdForUser(categoryId, user);
+
+        expense.setCategory(category.getName());
+        expense.setCategoryId(category.getId());
 
         expenseService.addExpense(expense, user);
-        redirectAttributes.addFlashAttribute("success", "Expense added successfully");
+
+        redirectAttributes.addFlashAttribute(
+                "success",
+                "Expense added successfully"
+        );
+
         return "redirect:/dashboard";
     }
 
     // ---------------- EDIT EXPENSE ----------------
 
     @GetMapping("/edit-expense/{id}")
-    public String editExpenseForm(@PathVariable Long id, Model model, HttpSession session) {
+    public String editExpenseForm(
+            @PathVariable Long id,
+            Model model,
+            HttpSession session) {
+
         User user = CurrentUser.from(session);
-        model.addAttribute("expense", expenseService.getExpenseByIdForUser(id, user));
-        model.addAttribute("categories", categoryService.getAllCategoriesForUser(user));
-        model.addAttribute("paymentMethods", PAYMENT_METHODS);
+
+        Expense expense =
+                expenseService.getExpenseByIdForUser(id, user);
+
+        model.addAttribute("expense", expense);
+        model.addAttribute(
+                "categories",
+                categoryService.getAllCategoriesForUser(user)
+        );
+
         return "edit-expense";
     }
 
     @PostMapping("/update-expense")
-    public String updateExpense(@Valid @ModelAttribute("expense") Expense expense,
-                                 BindingResult bindingResult,
-                                 @RequestParam(required = false) Long categoryId,
-                                 HttpSession session,
-                                 Model model,
-                                 RedirectAttributes redirectAttributes) {
+    public String updateExpense(
+            @Valid @ModelAttribute("expense") Expense expense,
+            BindingResult bindingResult,
+            @RequestParam(required = false) Long categoryId,
+            HttpSession session,
+            Model model,
+            RedirectAttributes redirectAttributes) {
 
         User user = CurrentUser.from(session);
 
         if (categoryId == null) {
-            bindingResult.rejectValue("category", "required", "Please select a category");
+            bindingResult.rejectValue(
+                    "category",
+                    "required",
+                    "Please select a category"
+            );
         }
 
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", categoryService.getAllCategoriesForUser(user));
-            model.addAttribute("paymentMethods", PAYMENT_METHODS);
+            model.addAttribute(
+                    "categories",
+                    categoryService.getAllCategoriesForUser(user)
+            );
             return "edit-expense";
         }
 
-        expense.setCategory(categoryService.getCategoryByIdForUser(categoryId, user));
+        Category category =
+                categoryService.getCategoryByIdForUser(categoryId, user);
 
-        expenseService.updateExpense(expense.getId(), user, expense);
-        redirectAttributes.addFlashAttribute("success", "Expense updated successfully");
+        expense.setCategory(category.getName());
+        expense.setCategoryId(category.getId());
+
+        expenseService.updateExpense(
+                expense.getId(),
+                user,
+                expense
+        );
+
+        redirectAttributes.addFlashAttribute(
+                "success",
+                "Expense updated successfully"
+        );
+
         return "redirect:/dashboard";
     }
 
     // ---------------- DELETE ----------------
 
     @PostMapping("/delete-expense/{id}")
-    public String deleteExpense(@PathVariable Long id, HttpSession session, RedirectAttributes redirectAttributes) {
-        expenseService.deleteExpense(id, CurrentUser.from(session));
-        redirectAttributes.addFlashAttribute("success", "Expense deleted successfully");
+    public String deleteExpense(
+            @PathVariable Long id,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+
+        User user = CurrentUser.from(session);
+
+        expenseService.deleteExpense(id, user);
+
+        redirectAttributes.addFlashAttribute(
+                "success",
+                "Expense deleted successfully"
+        );
+
         return "redirect:/expenses-page";
     }
 
     // ---------------- EXPENSE LIST + SEARCH/FILTER ----------------
 
     @GetMapping("/expenses-page")
-    public String expenses(@RequestParam(required = false) String keyword,
-                            @RequestParam(required = false) Long categoryId,
-                            @RequestParam(required = false) String paymentMethod,
-                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-                            Model model,
-                            HttpSession session) {
+    public String expenses(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate,
+            Model model,
+            HttpSession session) {
 
         User user = CurrentUser.from(session);
 
+        String categoryName = null;
+
+        if (categoryId != null) {
+            try {
+                Category category =
+                        categoryService.getCategoryByIdForUser(
+                                categoryId,
+                                user
+                        );
+
+                if (category != null) {
+                    categoryName = category.getName();
+                }
+            } catch (Exception ignored) {
+                categoryName = null;
+            }
+        }
+
         List<Expense> expenses = expenseService.searchExpenses(
-                user, keyword, categoryId, paymentMethod, startDate, endDate);
+                user,
+                keyword,
+                categoryName,
+                paymentMethod,
+                startDate,
+                endDate
+        );
 
         model.addAttribute("expenses", expenses);
-        model.addAttribute("categories", categoryService.getAllCategoriesForUser(user));
-        model.addAttribute("paymentMethods", PAYMENT_METHODS);
+        model.addAttribute(
+                "categories",
+                categoryService.getAllCategoriesForUser(user)
+        );
 
-        // Echo filters back so the form stays populated after searching.
         model.addAttribute("keyword", keyword);
         model.addAttribute("categoryId", categoryId);
         model.addAttribute("paymentMethod", paymentMethod);

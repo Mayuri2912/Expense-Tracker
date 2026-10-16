@@ -21,7 +21,9 @@ public class ProfileController {
     private final ExpenseService expenseService;
     private final CategoryService categoryService;
 
-    public ProfileController(UserService userService, ExpenseService expenseService, CategoryService categoryService) {
+    public ProfileController(UserService userService,
+                             ExpenseService expenseService,
+                             CategoryService categoryService) {
         this.userService = userService;
         this.expenseService = expenseService;
         this.categoryService = categoryService;
@@ -39,16 +41,19 @@ public class ProfileController {
     }
 
     @PostMapping("/profile/update")
-    public String updateProfile(@RequestParam String fullName,
+    public String updateProfile(@RequestParam String username,
                                  HttpSession session,
                                  RedirectAttributes redirectAttributes) {
 
         User user = CurrentUser.from(session);
 
         try {
-            User updated = userService.updateFullName(user.getId(), fullName);
+            User updated = userService.updateUsername(user.getId(), username);
             session.setAttribute("loggedInUser", updated);
-            redirectAttributes.addFlashAttribute("success", "Profile updated successfully");
+            redirectAttributes.addFlashAttribute(
+                    "success",
+                    "Profile updated successfully"
+            );
         } catch (IllegalArgumentException ex) {
             redirectAttributes.addFlashAttribute("error", ex.getMessage());
         }

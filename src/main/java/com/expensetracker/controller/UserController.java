@@ -24,24 +24,90 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers(HttpSession session) {
+
         if (session.getAttribute("loggedInUser") == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login required");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Login required"
+            );
         }
+
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
     @PostMapping
-    public ResponseEntity<User> registerUser(@RequestBody User user) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.registerUser(user));
+    public ResponseEntity<User> registerUser(
+            @RequestBody User user) {
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(userService.registerUser(user));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<User> loginUser(@RequestBody User user) {
-        User result = userService.loginUser(user.getEmail(), user.getPassword());
+    public ResponseEntity<User> loginUser(
+            @RequestBody User user,
+            HttpSession session) {
+
+        User result = userService.loginUser(
+                user.getEmail(),
+                user.getPassword()
+        );
+
         if (result == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid email or password"
+            );
         }
+
+        session.setAttribute("loggedInUser", result);
+
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/{id}/api-key")
+    public ResponseEntity<String> getApiKey(
+            @PathVariable Long id,
+            HttpSession session) {
+
+        User loggedInUser =
+                (User) session.getAttribute("loggedInUser");
+
+        if (loggedInUser == null
+                || !loggedInUser.getId().equals(id)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Login required"
+            );
+        }
+
+        return ResponseEntity.ok(
+                userService.getApiKey(id)
+        );
+    }
+
+    @PostMapping("/{id}/api-key/regenerate")
+    public ResponseEntity<String> regenerateApiKey(
+            @PathVariable Long id,
+            HttpSession session) {
+
+        User loggedInUser =
+                (User) session.getAttribute("loggedInUser");
+
+        if (loggedInUser == null
+                || !loggedInUser.getId().equals(id)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Login required"
+            );
+        }
+
+        String newApiKey =
+                userService.generateApiKey(id);
+
+        return ResponseEntity.ok(newApiKey);
+    }
 }

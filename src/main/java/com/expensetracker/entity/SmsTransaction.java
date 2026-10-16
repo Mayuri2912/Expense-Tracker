@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sms_transactions")
+@Table(name = "sms_transactions", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_sms_user_hash", columnNames = {"user_id", "sms_hash"})
+}, indexes = {
+        @Index(name = "idx_sms_user_hash", columnList = "user_id,sms_hash")
+})
 public class SmsTransaction {
 
     @Id
@@ -18,6 +22,7 @@ public class SmsTransaction {
     private String smsHash;
 
     private String sender;
+
     private Double amount;
 
     @Column(name = "transaction_type")
@@ -45,47 +50,114 @@ public class SmsTransaction {
     @Column(name = "expense_id")
     private Long expenseId;
 
-    public SmsTransaction() {}
+    public SmsTransaction() {
+    }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getSmsHash() { return smsHash; }
-    public void setSmsHash(String smsHash) { this.smsHash = smsHash; }
+    public Long getUserId() {
+        return userId;
+    }
 
-    public String getSender() { return sender; }
-    public void setSender(String sender) { this.sender = sender; }
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
+    public String getSmsHash() {
+        return smsHash;
+    }
 
-    public String getTransactionType() { return transactionType; }
-    public void setTransactionType(String transactionType) { this.transactionType = transactionType; }
+    public void setSmsHash(String smsHash) {
+        this.smsHash = smsHash;
+    }
 
-    public String getMerchant() { return merchant; }
-    public void setMerchant(String merchant) { this.merchant = merchant; }
+    public String getSender() {
+        return sender;
+    }
 
-    public String getAccountLast4() { return accountLast4; }
-    public void setAccountLast4(String accountLast4) { this.accountLast4 = accountLast4; }
+    public void setSender(String sender) {
+        this.sender = sender;
+    }
 
-    public String getReferenceNumber() { return referenceNumber; }
-    public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
+    public Double getAmount() {
+        return amount;
+    }
 
-    public String getRawMessage() { return rawMessage; }
-    public void setRawMessage(String rawMessage) { this.rawMessage = rawMessage; }
+    public void setAmount(Double amount) {
+        this.amount = amount;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getTransactionType() {
+        return transactionType;
+    }
 
-    public String getFailureReason() { return failureReason; }
-    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
+    public void setTransactionType(String transactionType) {
+        this.transactionType = transactionType;
+    }
 
-    public LocalDateTime getReceivedAt() { return receivedAt; }
+    public String getMerchant() {
+        return merchant;
+    }
 
-    public Long getExpenseId() { return expenseId; }
-    public void setExpenseId(Long expenseId) { this.expenseId = expenseId; }
+    public void setMerchant(String merchant) {
+        this.merchant = merchant;
+    }
+
+    public String getAccountLast4() {
+        return accountLast4;
+    }
+
+    public void setAccountLast4(String accountLast4) {
+        this.accountLast4 = accountLast4;
+    }
+
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
+    }
+
+    public String getRawMessage() {
+        return rawMessage;
+    }
+
+    public void setRawMessage(String rawMessage) {
+        this.rawMessage = rawMessage;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+
+    public Long getExpenseId() {
+        return expenseId;
+    }
+
+    public void setExpenseId(Long expenseId) {
+        this.expenseId = expenseId;
+    }
 }

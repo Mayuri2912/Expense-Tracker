@@ -2,11 +2,11 @@ package com.expensetracker.service;
 
 public interface EmailService {
 
+    /** Returns whether SMTP credentials are available for sending mail. */
+    boolean isConfigured();
+
     /**
-     * Sends a plain-text email. Implementations must not throw on failure
-     * (e.g. SMTP not configured) - they should log the problem instead, so a
-     * mail outage never breaks the surrounding feature (OTP generation,
-     * registration, etc. all still succeed even if the email itself fails).
+     * Sends a plain-text email and returns false if SMTP delivery fails.
      *
      * @return true if the email was sent successfully, false otherwise
      */

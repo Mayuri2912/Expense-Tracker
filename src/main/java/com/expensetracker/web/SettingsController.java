@@ -32,30 +32,94 @@ public class SettingsController {
     }
 
     @GetMapping("/security")
-    public String security() {
+    public String security(
+            HttpSession session,
+            Model model) {
+
+        User user = CurrentUser.from(session);
+
+        model.addAttribute(
+                "apiKey",
+                userService.getApiKey(user.getId())
+        );
+
         return "security";
     }
 
     @PostMapping("/settings/change-password")
-    public String changePassword(@RequestParam String currentPassword,
-                                  @RequestParam String newPassword,
-                                  @RequestParam String confirmPassword,
-                                  HttpSession session,
-                                  RedirectAttributes redirectAttributes) {
+    public String changePassword(
+            @RequestParam String currentPassword,
+            @RequestParam String newPassword,
+            @RequestParam String confirmPassword,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
 
         if (!newPassword.equals(confirmPassword)) {
-            redirectAttributes.addFlashAttribute("error", "New password and confirmation do not match");
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "New password and confirmation do not match"
+            );
             return "redirect:/security";
         }
 
         User user = CurrentUser.from(session);
 
         try {
-            User updated = userService.updateProfile(user.getId(), null, currentPassword, newPassword);
+
+            User updated = userService.updateProfile(
+                    user.getId(),
+                    null,
+                    currentPassword,
+                    newPassword
+            );
+
             session.setAttribute("loggedInUser", updated);
-            redirectAttributes.addFlashAttribute("success", "Password changed successfully");
+
+            redirectAttributes.addFlashAttribute(
+                    "success",
+                    "Password changed successfully"
+            );
+
         } catch (IllegalArgumentException ex) {
-            redirectAttributes.addFlashAttribute("error", ex.getMessage());
+
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    ex.getMessage()
+            );
+        }
+
+        return "redirect:/security";
+    }
+
+    @PostMapping("/security/regenerate-api-key")
+    public String regenerateApiKey(
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+
+        User user = CurrentUser.from(session);
+
+        try {
+
+            userService.generateApiKey(user.getId());
+
+            User updated = userService.getUserById(user.getId());
+
+            session.setAttribute(
+                    "loggedInUser",
+                    updated
+            );
+
+            redirectAttributes.addFlashAttribute(
+                    "success",
+                    "API key regenerated successfully"
+            );
+
+        } catch (Exception ex) {
+
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Unable to regenerate API key"
+            );
         }
 
         return "redirect:/security";

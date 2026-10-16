@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.expensetracker.entity.Expense;
 import com.expensetracker.entity.User;
+import com.expensetracker.entity.Category;
+import com.expensetracker.service.CategoryService;
 import com.expensetracker.service.ExpenseService;
 
 @RestController
@@ -17,9 +19,11 @@ import com.expensetracker.service.ExpenseService;
 public class ExpenseController {
 
     private final ExpenseService expenseService;
+    private final CategoryService categoryService;
 
-    public ExpenseController(ExpenseService expenseService) {
+    public ExpenseController(ExpenseService expenseService, CategoryService categoryService) {
         this.expenseService = expenseService;
+        this.categoryService = categoryService;
     }
 
     @GetMapping
@@ -31,6 +35,11 @@ public class ExpenseController {
     @PostMapping
     public ResponseEntity<Expense> addExpense(@RequestBody Expense expense, HttpSession session) {
         User user = requireUser(session);
+        if (expense.getCategoryId() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        Category category = categoryService.getCategoryByIdForUser(expense.getCategoryId(), user);
+        expense.setCategory(category.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(expenseService.addExpense(expense, user));
     }
 

@@ -191,7 +191,7 @@
                         <tbody>
                             <tr th:each="expense : ${recentExpenses}">
                                 <td th:text="${expense.title}"></td>
-                                <td><span class="badge bg-secondary" th:text="${expense.category != null ? expense.category.name : 'Uncategorized'}"></span></td>
+                                <td><span class="badge bg-secondary" th:text="${expense.category != null ? expense.category : 'Uncategorized'}"></span></td>
                                 <td>₹<span th:text="${#numbers.formatDecimal(expense.amount,1,2)}"></span></td>
                                 <td th:text="${expense.expenseDate}"></td>
                                 <td><span class="badge bg-info text-dark" th:text="${expense.paymentMethod}"></span></td>

@@ -8,7 +8,6 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
-import com.expensetracker.entity.Category;
 import com.expensetracker.entity.Expense;
 import com.expensetracker.entity.User;
 import com.expensetracker.exception.ResourceNotFoundException;
@@ -35,25 +34,46 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         existing.setTitle(updatedFields.getTitle());
         existing.setAmount(updatedFields.getAmount());
-        existing.setDescription(updatedFields.getDescription());
-        existing.setExpenseDate(updatedFields.getExpenseDate());
-        existing.setPaymentMethod(updatedFields.getPaymentMethod());
         existing.setCategory(updatedFields.getCategory());
+        existing.setCategoryId(updatedFields.getCategoryId());
+        existing.setDescription(updatedFields.getDescription());
+        existing.setPaymentMethod(updatedFields.getPaymentMethod());
+        existing.setDate(updatedFields.getDate());
+        existing.setSource(updatedFields.getSource());
 
         return expenseRepository.save(existing);
     }
 
     @Override
     public List<Expense> getAllExpensesForUser(User user) {
-        return expenseRepository.findByUserOrderByExpenseDateDesc(user);
+        return expenseRepository.findByUserOrderByDateDesc(user);
     }
 
     @Override
-    public List<Expense> searchExpenses(User user, String keyword, Long categoryId,
-                                         String paymentMethod, LocalDate startDate, LocalDate endDate) {
-        String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
-        String normalizedPayment = (paymentMethod == null || paymentMethod.isBlank()) ? null : paymentMethod;
-        return expenseRepository.searchExpenses(user, normalizedKeyword, categoryId, normalizedPayment, startDate, endDate);
+    public List<Expense> searchExpenses(
+            User user,
+            String keyword,
+            String category,
+            String paymentMethod,
+            LocalDate startDate,
+            LocalDate endDate) {
+
+        String normalizedKeyword =
+                (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+
+        String normalizedCategory =
+                (category == null || category.isBlank()) ? null : category.trim();
+        String normalizedPaymentMethod =
+                (paymentMethod == null || paymentMethod.isBlank()) ? null : paymentMethod.trim();
+
+        return expenseRepository.searchExpenses(
+                user,
+                normalizedKeyword,
+                normalizedCategory,
+                normalizedPaymentMethod,
+                startDate,
+                endDate
+        );
     }
 
     @Override
@@ -74,42 +94,53 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
-    public long getExpenseCountForCategory(Category category) {
-        return expenseRepository.countByCategory(category);
-    }
-
-    @Override
     public double getTotalExpenseAmount(User user) {
         return expenseRepository.sumAmountByUser(user);
     }
 
     @Override
     public double getMonthlyExpenseAmount(User user, int month, int year) {
-        return expenseRepository.sumAmountByUserAndMonthAndYear(user, month, year);
+        return expenseRepository.sumAmountByUserAndMonthAndYear(
+                user, month, year
+        );
     }
 
     @Override
     public Map<String, Double> getCategoryWiseTotals(User user) {
         Map<String, Double> totals = new LinkedHashMap<>();
+
         for (Object[] row : expenseRepository.sumAmountByCategoryForUser(user)) {
-            String categoryName = row[0] != null ? (String) row[0] : "Uncategorized";
-            Double amount = (Double) row[1];
+            String categoryName =
+                    row[0] != null ? (String) row[0] : "Uncategorized";
+
+            Double amount = ((Number) row[1]).doubleValue();
+
             totals.put(categoryName, amount);
         }
+
         return totals;
     }
 
     @Override
     public Map<String, Double> getLastSixMonthsTotals(User user) {
         Map<String, Double> totals = new LinkedHashMap<>();
-        DateTimeFormatter labelFormat = DateTimeFormatter.ofPattern("MMM yyyy");
 
-        LocalDate cursor = LocalDate.now().minusMonths(5).withDayOfMonth(1);
+        DateTimeFormatter labelFormat =
+                DateTimeFormatter.ofPattern("MMM yyyy");
+
+        LocalDate cursor =
+                LocalDate.now().minusMonths(5).withDayOfMonth(1);
 
         for (int i = 0; i < 6; i++) {
-            double monthTotal = expenseRepository.sumAmountByUserAndMonthAndYear(
-                    user, cursor.getMonthValue(), cursor.getYear());
+            double monthTotal =
+                    expenseRepository.sumAmountByUserAndMonthAndYear(
+                            user,
+                            cursor.getMonthValue(),
+                            cursor.getYear()
+                    );
+
             totals.put(cursor.format(labelFormat), monthTotal);
+
             cursor = cursor.plusMonths(1);
         }
 

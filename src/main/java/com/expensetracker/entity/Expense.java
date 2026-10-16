@@ -1,7 +1,6 @@
 package com.expensetracker.entity;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +15,10 @@ public class Expense {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     @NotBlank(message = "Title is required")
     @Column(nullable = false)
     private String title;
@@ -25,34 +28,35 @@ public class Expense {
     @Column(nullable = false)
     private Double amount;
 
-    private String description;
+    @Column(length = 100)
+    private String category;
 
-    @NotNull(message = "Expense date is required")
-    @Column(name = "expense_date")
-    private LocalDate expenseDate;
+    @Column(name = "category_id", nullable = false)
+    private Long categoryId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", insertable = false, updatable = false)
+    private Category categoryRecord;
+
+    @Column(length = 255)
+    private String description;
 
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @NotNull(message = "Expense date is required")
+    @Column(name = "expense_date", nullable = false)
+    private LocalDate date;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    // The application previously wrote to `date`; the imported schema uses
+    // `expense_date`. Keep both columns synchronized for existing databases.
+    @Column(name = "date")
+    private LocalDate legacyDate;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @Column(name = "source", length = 30)
+    private String source = "MANUAL";
 
     public Expense() {
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
     }
 
     public Long getId() {
@@ -61,6 +65,14 @@ public class Expense {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public String getTitle() {
@@ -79,20 +91,28 @@ public class Expense {
         this.amount = amount;
     }
 
+    public String getCategory() {
+        return category != null ? category : categoryRecord != null ? categoryRecord.getName() : null;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public LocalDate getExpenseDate() {
-        return expenseDate;
-    }
-
-    public void setExpenseDate(LocalDate expenseDate) {
-        this.expenseDate = expenseDate;
     }
 
     public String getPaymentMethod() {
@@ -103,27 +123,45 @@ public class Expense {
         this.paymentMethod = paymentMethod;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public LocalDate getDate() {
+        return date;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setDate(LocalDate date) {
+        this.date = date;
+        this.legacyDate = date;
     }
 
-    public User getUser() {
-        return user;
+    public LocalDate getExpenseDate() {
+        return date;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setExpenseDate(LocalDate expenseDate) {
+        this.date = expenseDate;
+        this.legacyDate = expenseDate;
     }
 
-    public Category getCategory() {
-        return category;
+    @PostLoad
+    private void populateExpenseDate() {
+        if (date == null) {
+            date = legacyDate;
+        }
     }
 
-    public void setCategory(Category category) {
-        this.category = category;
+    @PrePersist
+    @PreUpdate
+    private void synchronizeExpenseDateColumns() {
+        if (date == null) {
+            date = legacyDate;
+        }
+        legacyDate = date;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 }

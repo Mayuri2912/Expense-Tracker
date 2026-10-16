@@ -19,18 +19,16 @@ public interface UserService {
 
     boolean emailExists(String email);
 
-    /**
-     * Updates the logged-in user's full name and, optionally, their password.
-     * @param currentPassword required to confirm identity before any change is made
-     * @param newPassword     leave blank/null to keep the existing password
-     */
-    User updateProfile(Long userId, String fullName, String currentPassword, String newPassword);
+    User updateProfile(
+            Long userId,
+            String username,
+            String currentPassword,
+            String newPassword
+    );
 
-    /**
-     * Updates only the user's full name - no password confirmation required.
-     * Used by the Profile page, which no longer handles password changes
-     * (see the dedicated Security page / {@link #updateProfile} for that).
-     */
-    User updateFullName(Long userId, String fullName);
+    User updateUsername(Long userId, String username);
 
+    String generateApiKey(Long userId);
+
+    String getApiKey(Long userId);
 }
